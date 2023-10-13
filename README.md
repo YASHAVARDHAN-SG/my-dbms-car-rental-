@@ -1,5 +1,5 @@
 
-<h1>CAR RENTAL PORTAL </h1>
+<h1 >CAR RENTAL PORTAL </h1>
 <body style="background-color:powderblue;">
 <p>
   This is the car rental portal that is used to book a car for the journey according .<br>
