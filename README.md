@@ -19,10 +19,19 @@
 ## Jenkins pipeline
 
 The `Jenkinsfile` checks out this repository on the Jenkins agent labeled
-`jenkins-slave-1`, starts an isolated SonarQube container, runs SonarQube
-analysis in a scanner container, and archives a compressed source artifact when
-analysis passes. It removes the SonarQube container and its private Docker
-network after the build.
+`jenkins-slave-1`, starts a persistent SonarQube container, runs SonarQube
+analysis in a scanner container, archives a compressed source artifact, and
+deploys the PHP site in a Docker container published on port 80. SonarQube is
+published on port 9000 and stores its data in named Docker volumes; both
+containers use Docker's `unless-stopped` restart policy.
+
+The `Dockerfile` packages the PHP site with Apache and the PDO MySQL PHP
+extension. The database is not deployed yet. The current repository does not
+include the `includes/config.php` or `assets/` files referenced by the PHP
+pages, so add those application files and configure the database before
+expecting all pages and styling to work. The Jenkins agent host must have port
+80 available, and its firewall/network rules must permit HTTP traffic to that
+port. Visit `http://<jenkins-slave-1-host>/` after a successful deployment.
 
 Configure the Jenkins job to use this repository's `Jenkinsfile` (for example,
 as a Pipeline-from-SCM or Multibranch Pipeline job). To start a build on each
@@ -59,6 +68,26 @@ message to `#jenkins-jobs-car-rental`. To enable it:
 Slack delivery is best-effort: a Slack outage or configuration error will not
 change the pipeline's build result.
 
+### Accessing SonarQube
+
+After the pipeline starts SonarQube on `jenkins-slave-1`, open
+`http://<jenkins-slave-1-host>:9000` in a browser. Replace the placeholder with
+the slave's reachable IP address or DNS name. Allow inbound TCP port 9000 in
+the host firewall and cloud security rules; restrict access to trusted IPs
+rather than exposing the administration UI publicly.
+
+On a fresh SonarQube instance, sign in with `admin` / `admin` and immediately
+change the password when prompted. In SonarQube, create a user token from
+**My Account → Security → Generate Tokens**. Add the token to Jenkins as a
+**Secret text** credential with ID `sonarqube-token`; the pipeline uses it for
+analysis and does not store it in the repository. The initial build may stop at
+the analysis stage until this Jenkins credential is configured.
+
+SonarQube restarts automatically and its data persists between builds. The
+Docker host must keep port 9000 available. To inspect the container on the
+slave, use `docker ps --filter name=car-rental-sonarqube` and
+`docker logs car-rental-sonarqube`.
+
 GitHub delivers the webhook to the Jenkins controller; this is expected. The
 Jenkinsfile schedules its pipeline stages on the `jenkins-slave-1` agent and
 excludes nodes labeled `built-in` or `master`. In Jenkins, confirm that
@@ -75,11 +104,9 @@ agent and any other workloads). If the agent uses Docker Desktop or a VM, make
 sure that VM has sufficient memory allocated. An Elasticsearch exit code of
 137 means it was killed, commonly by the host out-of-memory killer; check
 available Docker host memory and OOM events if startup fails. The pipeline logs
-the container's OOM status and Docker host memory after a startup timeout. The
-SonarQube container is build-local and not published on a host port. Analysis
-settings are in `sonar-project.properties`; the pipeline waits for the
-SonarQube quality gate. Because the server is removed after the build, its
-dashboard and analysis history are temporary and are not retained.
+the container's OOM status and Docker host memory after a startup timeout.
+Analysis settings are in `sonar-project.properties`; the pipeline waits for
+the SonarQube quality gate.
 The completed
 `dist/car-rental-portal-<build-number>.tar.gz` is archived as a Jenkins build
 artifact.

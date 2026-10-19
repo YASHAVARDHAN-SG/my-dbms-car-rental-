@@ -64,25 +64,37 @@ pipeline {
             steps {
                 sh '''
                     set -eu
-                    NETWORK="car-rental-$(printf '%s' "$BUILD_TAG" | tr -c 'A-Za-z0-9_.-' '-')"
-                    CONTAINER="${NETWORK}-sonarqube"
-
+                    NETWORK=car-rental-sonarqube
+                    CONTAINER=car-rental-sonarqube
                     docker info >/dev/null
-                    docker network create "$NETWORK"
-                    docker run --detach \
-                        --name "$CONTAINER" \
-                        --network "$NETWORK" \
-                        --network-alias sonarqube \
-                        --ulimit nofile=131072:131072 \
-                        --ulimit nproc=8192:8192 \
-                        "$SONARQUBE_IMAGE"
+                    docker network inspect "$NETWORK" >/dev/null 2>&1 || docker network create "$NETWORK"
+                    docker volume create car-rental-sonarqube-data >/dev/null
+                    docker volume create car-rental-sonarqube-extensions >/dev/null
+                    docker volume create car-rental-sonarqube-logs >/dev/null
+
+                    if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
+                        docker run --detach \
+                            --name "$CONTAINER" \
+                            --restart unless-stopped \
+                            --network "$NETWORK" \
+                            --network-alias sonarqube \
+                            --publish 9000:9000 \
+                            --volume car-rental-sonarqube-data:/opt/sonarqube/data \
+                            --volume car-rental-sonarqube-extensions:/opt/sonarqube/extensions \
+                            --volume car-rental-sonarqube-logs:/opt/sonarqube/logs \
+                            --ulimit nofile=131072:131072 \
+                            --ulimit nproc=8192:8192 \
+                            "$SONARQUBE_IMAGE"
+                    elif [ "$(docker inspect --format '{{.State.Running}}' "$CONTAINER")" != true ]; then
+                        docker start "$CONTAINER"
+                    fi
 
                     attempt=0
                     while [ "$attempt" -lt 120 ]; do
                         if docker run --rm --network "$NETWORK" "$CURL_IMAGE" \
-                            --fail --silent --show-error \
-                            http://sonarqube:9000/api/system/status 2>/dev/null \
+                            --fail --silent --show-error http://sonarqube:9000/api/system/status 2>/dev/null \
                             | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'; then
+                            echo "SonarQube UI: http://<jenkins-slave-1-host>:9000"
                             exit 0
                         fi
                         attempt=$((attempt + 1))
@@ -104,41 +116,23 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                sh '''
-                            set -eu
-                            NETWORK="car-rental-$(printf '%s' "$BUILD_TAG" | tr -c 'A-Za-z0-9_.-' '-')"
-                            ADMIN_PASSWORD="JenkinsSonar-${BUILD_NUMBER}-OnlyForThisBuild!"
-
-                            docker run --rm --network "$NETWORK" "$CURL_IMAGE" \
-                                --fail --silent --show-error --user admin:admin \
-                                --data-urlencode login=admin \
-                                --data-urlencode previousPassword=admin \
-                                --data-urlencode "password=$ADMIN_PASSWORD" \
-                                http://sonarqube:9000/api/users/change_password >/dev/null
-
-                            TOKEN_RESPONSE=$(docker run --rm --network "$NETWORK" "$CURL_IMAGE" \
-                                --fail --silent --show-error --user "admin:$ADMIN_PASSWORD" \
-                                --data-urlencode "name=jenkins-${BUILD_NUMBER}" \
-                                http://sonarqube:9000/api/user_tokens/generate)
-                            SONAR_TOKEN=$(printf '%s' "$TOKEN_RESPONSE" \
-                                | sed -n 's/.*"token":"\\([^"]*\\)".*/\\1/p')
-                            test -n "$SONAR_TOKEN"
-                            export SONAR_TOKEN
-
-                            docker run --rm \
-                                --network "$NETWORK" \
-                                --volume "$WORKSPACE:/usr/src" \
-                                --workdir /usr/src \
-                                --user "$(id -u):$(id -g)" \
-                                --env SONAR_USER_HOME=/tmp/sonar \
-                                --env SONAR_TOKEN \
-                                "$SONAR_SCANNER_IMAGE" \
-                                -Dsonar.host.url=http://sonarqube:9000 \
-                                -Dsonar.qualitygate.wait=true
-                '''
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        set -eu
+                        docker run --rm \
+                            --network car-rental-sonarqube \
+                            --volume "$WORKSPACE:/usr/src" \
+                            --workdir /usr/src \
+                            --user "$(id -u):$(id -g)" \
+                            --env SONAR_USER_HOME=/tmp/sonar \
+                            --env SONAR_TOKEN \
+                            "$SONAR_SCANNER_IMAGE" \
+                            -Dsonar.host.url=http://sonarqube:9000 \
+                            -Dsonar.qualitygate.wait=true
+                    '''
+                }
             }
         }
-
         stage('Build Artifact') {
             steps {
                 sh '''
@@ -163,17 +157,42 @@ pipeline {
                 archiveArtifacts artifacts: 'dist/car-rental-portal-*.tar.gz', fingerprint: true
             }
         }
+
+        stage('Deploy to Docker') {
+            steps {
+                sh '''
+                    set -eu
+                    IMAGE="car-rental-portal:${BUILD_NUMBER}"
+
+                    docker build --pull --tag "$IMAGE" .
+                    docker rm --force car-rental-portal >/dev/null 2>&1 || true
+                    docker run --detach \
+                        --name car-rental-portal \
+                        --restart unless-stopped \
+                        --publish 80:80 \
+                        "$IMAGE"
+
+                    attempt=0
+                    while [ "$attempt" -lt 30 ]; do
+                        if docker run --rm --network host "$CURL_IMAGE" \
+                            --fail --silent --show-error \
+                            http://127.0.0.1/ >/dev/null; then
+                            echo "Website is responding at http://<jenkins-slave-1-host>/"
+                            exit 0
+                        fi
+                        attempt=$((attempt + 1))
+                        sleep 2
+                    done
+
+                    docker logs car-rental-portal
+                    echo "The deployed website did not respond on port 80." >&2
+                    exit 1
+                '''
+            }
+        }
     }
 
     post {
-        always {
-            sh '''
-                NETWORK="car-rental-$(printf '%s' "$BUILD_TAG" | tr -c 'A-Za-z0-9_.-' '-')"
-                docker rm --force "${NETWORK}-sonarqube" >/dev/null 2>&1 || true
-                docker network rm "$NETWORK" >/dev/null 2>&1 || true
-            '''
-        }
-
         success {
             slackSend(
                 channel: '#jenkins-jobs-car-rental',
