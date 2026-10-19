@@ -39,8 +39,8 @@ source artifact.
 
 ### Slack build notifications
 
-The pipeline posts a success or failure message to
-`#jenkins-jobs-car-rental` after each build. To enable it:
+The pipeline posts a start notification and a formatted success or failure
+message to `#jenkins-jobs-car-rental`. To enable it:
 
 1. Install the Jenkins **Slack Notification** plugin.
 2. Create a Slack app in the workspace, add the `chat:write` bot token scope,

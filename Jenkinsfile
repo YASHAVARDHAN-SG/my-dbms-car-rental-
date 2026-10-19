@@ -20,6 +20,25 @@ pipeline {
     }
 
     stages {
+        stage('Pipeline Started') {
+            steps {
+                slackSend(
+                    channel: '#jenkins-jobs-car-rental',
+                    color: '#439FE0',
+                    message: """🏁 *PIPELINE STARTED*
+
+🚀 *Project:* Car Rental
+🛠️ *Job:* ${env.JOB_NAME}
+🔢 *Build:* #${env.BUILD_NUMBER}
+⏳ *Status:* IN PROGRESS
+🔗 *Track Progress:* ${env.BUILD_URL}
+
+⚙️ The CI/CD pipeline has started. Stay tuned for updates!""",
+                    failOnError: false
+                )
+            }
+        }
+
         stage('Checkout') {
             steps {
                 script {
@@ -148,7 +167,15 @@ pipeline {
             slackSend(
                 channel: '#jenkins-jobs-car-rental',
                 color: 'good',
-                message: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER} - ${env.BUILD_URL}",
+                message: """🎉 *BUILD SUCCESSFUL*
+
+🚀 *Project:* Car Rental
+🛠️ *Job:* ${env.JOB_NAME}
+🔢 *Build Number:* #${env.BUILD_NUMBER}
+⏱️ *Status:* SUCCESS
+🔗 *Build Details:* ${env.BUILD_URL}
+
+✅ Build completed successfully !!!""",
                 failOnError: false
             )
         }
@@ -157,7 +184,15 @@ pipeline {
             slackSend(
                 channel: '#jenkins-jobs-car-rental',
                 color: 'danger',
-                message: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER} - ${env.BUILD_URL}",
+                message: """🚨 *BUILD FAILED*
+
+🚗 *Project:* Car Rental
+🛠️ *Job:* ${env.JOB_NAME}
+🔢 *Build Number:* #${env.BUILD_NUMBER}
+❌ *Status:* FAILURE
+🔗 *Console Output:* ${env.BUILD_URL}console
+
+⚠️ Please investigate the failure and check the Jenkins console logs.""",
                 failOnError: false
             )
         }
