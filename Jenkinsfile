@@ -72,8 +72,8 @@ pipeline {
                     docker volume create car-rental-sonarqube-extensions >/dev/null
                     docker volume create car-rental-sonarqube-logs >/dev/null
 
-                    if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
-                        docker run --detach \
+                    if ! docker container inspect "$CONTAINER" >/dev/null 2>&1; then
+                        docker container run --detach \
                             --name "$CONTAINER" \
                             --restart unless-stopped \
                             --network "$NETWORK" \
@@ -85,8 +85,8 @@ pipeline {
                             --ulimit nofile=131072:131072 \
                             --ulimit nproc=8192:8192 \
                             "$SONARQUBE_IMAGE"
-                    elif [ "$(docker inspect --format '{{.State.Running}}' "$CONTAINER")" != true ]; then
-                        docker start "$CONTAINER"
+                    elif [ "$(docker container inspect --format '{{.State.Running}}' "$CONTAINER")" != true ]; then
+                        docker container start "$CONTAINER"
                     fi
 
                     attempt=0
@@ -101,8 +101,8 @@ pipeline {
                         sleep 5
                     done
 
-                    docker logs "$CONTAINER"
-                    docker inspect --format \
+                    docker container logs "$CONTAINER"
+                    docker container inspect --format \
                         'OOMKilled={{.State.OOMKilled}} ExitCode={{.State.ExitCode}}' \
                         "$CONTAINER" || true
                     docker info --format \
