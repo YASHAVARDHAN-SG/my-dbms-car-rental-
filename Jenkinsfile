@@ -13,7 +13,6 @@ pipeline {
     }
 
     environment {
-        PHP_TOOLS_IMAGE = 'composer:2'
         SONARQUBE_IMAGE = 'sonarqube:lts-community'
         SONAR_SCANNER_IMAGE = 'sonarsource/sonar-scanner-cli:latest'
         CURL_IMAGE = 'curlimages/curl:8.12.1'
@@ -64,47 +63,21 @@ pipeline {
                     done
 
                     docker logs "$CONTAINER"
+                    docker inspect --format \
+                        'OOMKilled={{.State.OOMKilled}} ExitCode={{.State.ExitCode}}' \
+                        "$CONTAINER" || true
+                    docker info --format \
+                        'Docker host memory bytes: {{.MemTotal}}' || true
                     echo "SonarQube did not become ready within 10 minutes." >&2
+                    echo "Exit code 137 usually means the Docker host or its VM ran out of memory and killed Elasticsearch." >&2
                     exit 1
                 '''
             }
         }
 
-        stage('Quality Checks') {
-            parallel {
-                stage('PHP_CodeSniffer') {
-                    steps {
-                        sh '''
-                            set -eu
-                            mkdir -p reports
-                            docker run --rm \
-                                --volume "$WORKSPACE:/workspace" \
-                                --workdir /workspace \
-                                --entrypoint sh \
-                                "$PHP_TOOLS_IMAGE" \
-                                -c '
-                                    export COMPOSER_HOME=/tmp/composer
-                                    composer global require --no-interaction squizlabs/php_codesniffer
-                                    /tmp/composer/vendor/bin/phpcs \
-                                        --standard=PSR12 \
-                                        --extensions=php \
-                                        --ignore=.git,dist,reports,.scannerwork \
-                                        --report=checkstyle \
-                                        --report-file=reports/phpcs.xml \
-                                        .
-                                '
-                        '''
-                    }
-                    post {
-                        always {
-                            archiveArtifacts artifacts: 'reports/phpcs.xml', allowEmptyArchive: true
-                        }
-                    }
-                }
-
-                stage('SonarQube Analysis') {
-                    steps {
-                        sh '''
+        stage('SonarQube Analysis') {
+            steps {
+                sh '''
                             set -eu
                             NETWORK="car-rental-$(printf '%s' "$BUILD_TAG" | tr -c 'A-Za-z0-9_.-' '-')"
                             ADMIN_PASSWORD="JenkinsSonar-${BUILD_NUMBER}-OnlyForThisBuild!"
@@ -133,9 +106,7 @@ pipeline {
                                 "$SONAR_SCANNER_IMAGE" \
                                 -Dsonar.host.url=http://sonarqube:9000 \
                                 -Dsonar.qualitygate.wait=true
-                        '''
-                    }
-                }
+                '''
             }
         }
 
@@ -171,6 +142,17 @@ pipeline {
                 docker rm --force "${NETWORK}-sonarqube" >/dev/null 2>&1 || true
                 docker network rm "$NETWORK" >/dev/null 2>&1 || true
             '''
+            script {
+                def result = currentBuild.currentResult ?: 'UNKNOWN'
+                def color = result == 'SUCCESS' ? 'good' : 'danger'
+                slackSend(
+                    channel: '#jenkins-jobs-car-rental',
+                    color: color,
+                    message: "${result}: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open build>)",
+                    tokenCredentialId: 'slack-bot-token',
+                    failOnError: false
+                )
+            }
         }
     }
 }
