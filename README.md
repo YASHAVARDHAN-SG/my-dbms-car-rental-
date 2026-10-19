@@ -35,7 +35,10 @@ configuration. The agent needs Docker CLI access to a running Docker daemon,
 and must be a Linux/Unix agent. The pipeline downloads these images on first
 use: `sonarqube:lts-community`, `sonarsource/sonar-scanner-cli:latest`,
 `curlimages/curl:8.12.1`, and `alpine:3.21`. The Alpine image packages the
-source artifact.
+source artifact and removes stale workspace files at checkout, including files
+left by previous containers with different ownership. The scanner and packager
+run as the Jenkins agent's UID/GID so their workspace files remain removable
+by the agent on later builds.
 
 ### Slack build notifications
 

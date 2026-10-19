@@ -47,7 +47,15 @@ pipeline {
                         error('Pipeline must run on jenkins-slave-1, not the built-in node.')
                     }
                 }
-                deleteDir()
+                sh '''
+                    set -eu
+                    docker run --rm \
+                        --volume "$WORKSPACE:/workspace" \
+                        --workdir /workspace \
+                        --entrypoint sh \
+                        "$PACKAGER_IMAGE" \
+                        -c 'find /workspace -mindepth 1 -maxdepth 1 -exec rm -rf {} \\;'
+                '''
                 checkout scm
             }
         }
@@ -121,6 +129,8 @@ pipeline {
                                 --network "$NETWORK" \
                                 --volume "$WORKSPACE:/usr/src" \
                                 --workdir /usr/src \
+                                --user "$(id -u):$(id -g)" \
+                                --env SONAR_USER_HOME=/tmp/sonar \
                                 --env SONAR_TOKEN \
                                 "$SONAR_SCANNER_IMAGE" \
                                 -Dsonar.host.url=http://sonarqube:9000 \
@@ -136,6 +146,7 @@ pipeline {
                     docker run --rm \
                         --volume "$WORKSPACE:/workspace" \
                         --workdir /workspace \
+                        --user "$(id -u):$(id -g)" \
                         --env BUILD_NUMBER \
                         "$PACKAGER_IMAGE" \
                         sh -c '
