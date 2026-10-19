@@ -142,17 +142,24 @@ pipeline {
                 docker rm --force "${NETWORK}-sonarqube" >/dev/null 2>&1 || true
                 docker network rm "$NETWORK" >/dev/null 2>&1 || true
             '''
-            script {
-                def result = currentBuild.currentResult ?: 'UNKNOWN'
-                def color = result == 'SUCCESS' ? 'good' : 'danger'
-                slackSend(
-                    channel: '#jenkins-jobs-car-rental',
-                    color: color,
-                    message: "${result}: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open build>)",
-                    tokenCredentialId: 'slack-bot-token',
-                    failOnError: false
-                )
-            }
+        }
+
+        success {
+            slackSend(
+                channel: '#jenkins-jobs-car-rental',
+                color: 'good',
+                message: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER} - ${env.BUILD_URL}",
+                failOnError: false
+            )
+        }
+
+        failure {
+            slackSend(
+                channel: '#jenkins-jobs-car-rental',
+                color: 'danger',
+                message: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER} - ${env.BUILD_URL}",
+                failOnError: false
+            )
         }
     }
 }

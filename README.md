@@ -45,14 +45,13 @@ The pipeline posts a success or failure message to
 1. Install the Jenkins **Slack Notification** plugin.
 2. Create a Slack app in the workspace, add the `chat:write` bot token scope,
    install the app, and invite its bot user to `#jenkins-jobs-car-rental`.
-3. In Jenkins, add the app's **Bot User OAuth Token** as a **Secret text**
-   credential with ID `slack-bot-token`. Do not put the token in the
-   `Jenkinsfile` or source repository.
-4. In **Manage Jenkins → System → Slack**, configure the Slack workspace/team
-   and any required Slack API endpoint settings. The pipeline passes the
-   credential by ID when sending messages.
-5. Run a build and confirm the result message and build link appear in the
-   channel.
+3. In **Manage Jenkins → System → Slack**, configure the Slack workspace/team,
+   the app's Bot User OAuth Token (or its Jenkins credential), and any required
+   Slack API endpoint settings. Do not put the token in the `Jenkinsfile` or
+   source repository.
+4. Confirm the Slack Notification plugin's default integration configuration
+   can post to the channel. Run a build and confirm the result message and
+   build link appear there.
 
 Slack delivery is best-effort: a Slack outage or configuration error will not
 change the pipeline's build result.
