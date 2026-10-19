@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'jenkins-slave-1'
+        label 'jenkins-slave-1 && !built-in && !master'
     }
 
     options {
@@ -23,6 +23,12 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                script {
+                    echo "Running pipeline on Jenkins node: ${env.NODE_NAME}"
+                    if (env.NODE_NAME == 'built-in' || env.NODE_NAME == 'master') {
+                        error('Pipeline must run on jenkins-slave-1, not the built-in node.')
+                    }
+                }
                 deleteDir()
                 checkout scm
             }

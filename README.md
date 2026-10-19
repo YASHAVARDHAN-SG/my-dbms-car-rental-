@@ -38,6 +38,15 @@ use: `composer:2`, `sonarqube:lts-community`,
 `alpine:3.21`. The Composer image installs PHPCS for the lint check; the Alpine
 image packages the source artifact.
 
+GitHub delivers the webhook to the Jenkins controller; this is expected. The
+Jenkinsfile schedules its pipeline stages on the `jenkins-slave-1` agent and
+excludes nodes labeled `built-in` or `master`. In Jenkins, confirm that
+`jenkins-slave-1` is assigned to the slave node (not the built-in node), that
+the slave is online, and that the job is not restricted to the built-in node.
+For a strict controller/slave separation, set the built-in node's executor
+count to `0` under **Manage Jenkins → Nodes → Built-In Node → Configure**.
+The first pipeline log line reports the node selected to run the stages.
+
 The Docker host must meet SonarQube's Elasticsearch requirements, including
 `vm.max_map_count` of at least `524288`, and have enough memory for the
 SonarQube container. The SonarQube container is build-local and not published on
