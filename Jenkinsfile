@@ -123,25 +123,25 @@ pipeline {
             }
         }
 
-        // stage('SonarQube Analysis') {
-        //     steps {
-        //         withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-        //             sh '''
-        //                 set -eu
-        //                 docker run --rm \
-        //                     --network car-rental-sonarqube \
-        //                     --volume "$WORKSPACE:/usr/src" \
-        //                     --workdir /usr/src \
-        //                     --user "$(id -u):$(id -g)" \
-        //                     --env SONAR_USER_HOME=/tmp/sonar \
-        //                     --env SONAR_TOKEN \
-        //                     "$SONAR_SCANNER_IMAGE" \
-        //                     -Dsonar.host.url=http://sonarqube:9000 \
-        //                     -Dsonar.qualitygate.wait=true
-        //             '''
-        //         }
-        //     }
-        // }
+        stage('SonarQube Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        set -eu
+                        docker run --rm \
+                            --network car-rental-sonarqube \
+                            --volume "$WORKSPACE:/usr/src" \
+                            --workdir /usr/src \
+                            --user "$(id -u):$(id -g)" \
+                            --env SONAR_USER_HOME=/tmp/sonar \
+                            --env SONAR_TOKEN \
+                            "$SONAR_SCANNER_IMAGE" \
+                            -Dsonar.host.url=http://sonarqube:9000 \
+                            -Dsonar.qualitygate.wait=true
+                    '''
+                }
+            }
+        }
         stage('Build Artifact') {
             steps {
                 sh '''
