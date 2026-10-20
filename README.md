@@ -138,4 +138,4 @@ the SonarQube quality gate.
 The completed
 `dist/car-rental-portal-<build-number>.tar.gz` is archived as a Jenkins build
 artifact.
-#####
+######
