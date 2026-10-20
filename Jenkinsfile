@@ -6,10 +6,19 @@ pipeline {
     options {
         skipDefaultCheckout(true)
         timestamps()
+        disableConcurrentBuilds()
     }
 
     triggers {
         githubPush()
+    }
+
+    parameters {
+        string(
+            name: 'WEBSITE_PORT',
+            defaultValue: '8080',
+            description: 'Available TCP port on jenkins-slave-1 for the website'
+        )
     }
 
     environment {
@@ -162,30 +171,109 @@ pipeline {
             steps {
                 sh '''
                     set -eu
-                    IMAGE="car-rental-portal:${BUILD_NUMBER}"
+                    case "$WEBSITE_PORT" in
+                        ''|*[!0-9]*)
+                            echo "WEBSITE_PORT must be a port number from 1 to 65535." >&2
+                            exit 1
+                            ;;
+                    esac
+                    if [ "$WEBSITE_PORT" -lt 1 ] || [ "$WEBSITE_PORT" -gt 65535 ]; then
+                        echo "WEBSITE_PORT must be a port number from 1 to 65535." >&2
+                        exit 1
+                    fi
 
-                    docker build --pull --tag "$IMAGE" .
+                    IMAGE=car-rental-portal:latest
+                    CANDIDATE="car-rental-portal-candidate-${BUILD_NUMBER}"
+                    ROLLBACK_IMAGE="car-rental-portal:rollback-${BUILD_NUMBER}"
+                    OLD_IMAGE_REFS=$(docker image ls --format '{{.Repository}}:{{.Tag}}' car-rental-portal | sort -u)
+                    OLD_CONTAINER_IMAGE=
+
+                    mkdir -p /var/tmp/old_docker_images
+                    for OLD_IMAGE_REF in $OLD_IMAGE_REFS; do
+                        SAFE_TAG=$(printf '%s' "$OLD_IMAGE_REF" | tr ':/' '--')
+                        docker image save \
+                            --output "/home/ubuntu/docker_images/${SAFE_TAG}-before-build-${BUILD_NUMBER}.tar" \
+                            "$OLD_IMAGE_REF"
+                    done
+
+                    if docker container inspect car-rental-portal >/dev/null 2>&1; then
+                        OLD_CONTAINER_IMAGE=$(docker container inspect --format '{{.Image}}' car-rental-portal)
+                        docker image tag "$OLD_CONTAINER_IMAGE" "$ROLLBACK_IMAGE"
+                        docker image save \
+                            --output "/var/tmp/old_docker_images/car-rental-portal-running-before-build-${BUILD_NUMBER}.tar" \
+                            "$ROLLBACK_IMAGE"
+                    fi
+
+                    if ! docker build --pull --tag "$IMAGE" .; then
+                        docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
+                        exit 1
+                    fi
+                    NEW_IMAGE_ID=$(docker image inspect --format '{{.Id}}' "$IMAGE")
+
                     docker rm --force car-rental-portal >/dev/null 2>&1 || true
-                    docker run --detach \
-                        --name car-rental-portal \
+                    if ! docker run --detach \
+                        --name "$CANDIDATE" \
                         --restart unless-stopped \
-                        --publish 80:80 \
-                        "$IMAGE"
+                        --publish "$WEBSITE_PORT:80" \
+                        "$IMAGE"; then
+                        docker rm --force "$CANDIDATE" >/dev/null 2>&1 || true
+                        if [ -n "$OLD_CONTAINER_IMAGE" ]; then
+                            docker image tag "$ROLLBACK_IMAGE" "$IMAGE"
+                            docker run --detach \
+                                --name car-rental-portal \
+                                --restart unless-stopped \
+                                --publish "$WEBSITE_PORT:80" \
+                                "$ROLLBACK_IMAGE" || true
+                        fi
+                        docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
+                        if [ -n "$OLD_CONTAINER_IMAGE" ] && [ "$OLD_CONTAINER_IMAGE" != "$NEW_IMAGE_ID" ]; then
+                            docker image rm "$NEW_IMAGE_ID" >/dev/null 2>&1 || true
+                        fi
+                        echo "Could not start the website on host port $WEBSITE_PORT. Choose an unused port and retry." >&2
+                        exit 1
+                    fi
 
                     attempt=0
                     while [ "$attempt" -lt 30 ]; do
                         if docker run --rm --network host "$CURL_IMAGE" \
                             --fail --silent --show-error \
-                            http://127.0.0.1/ >/dev/null; then
-                            echo "Website is responding at http://<jenkins-slave-1-host>/"
+                            "http://127.0.0.1:$WEBSITE_PORT/" >/dev/null; then
+                            docker rename "$CANDIDATE" car-rental-portal
+                            docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
+                            for OLD_IMAGE_REF in $OLD_IMAGE_REFS; do
+                                if [ "$OLD_IMAGE_REF" != "$IMAGE" ] && ! docker image rm "$OLD_IMAGE_REF"; then
+                                    echo "Warning: unable to remove previous image $OLD_IMAGE_REF." >&2
+                                fi
+                            done
+                            if [ -n "$OLD_CONTAINER_IMAGE" ] && [ "$OLD_CONTAINER_IMAGE" != "$NEW_IMAGE_ID" ]; then
+                                if ! docker image rm "$OLD_CONTAINER_IMAGE"; then
+                                    echo "Warning: unable to remove previous image ID $OLD_CONTAINER_IMAGE." >&2
+                                fi
+                            fi
+                            echo "Website is responding at http://<jenkins-slave-1-host>:$WEBSITE_PORT/"
                             exit 0
                         fi
                         attempt=$((attempt + 1))
                         sleep 2
                     done
 
-                    docker logs car-rental-portal
-                    echo "The deployed website did not respond on port 80." >&2
+                    docker logs "$CANDIDATE"
+                    docker rm --force "$CANDIDATE" >/dev/null 2>&1 || true
+                    if [ -n "$OLD_CONTAINER_IMAGE" ]; then
+                        docker image tag "$ROLLBACK_IMAGE" "$IMAGE"
+                        if ! docker run --detach \
+                            --name car-rental-portal \
+                            --restart unless-stopped \
+                            --publish "$WEBSITE_PORT:80" \
+                            "$ROLLBACK_IMAGE"; then
+                            echo "Warning: rollback container could not be started." >&2
+                        fi
+                    fi
+                    docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
+                    if [ -n "$OLD_CONTAINER_IMAGE" ] && [ "$OLD_CONTAINER_IMAGE" != "$NEW_IMAGE_ID" ]; then
+                        docker image rm "$NEW_IMAGE_ID" >/dev/null 2>&1 || true
+                    fi
+                    echo "The deployment candidate did not respond on host port $WEBSITE_PORT; rollback was attempted." >&2
                     exit 1
                 '''
             }
@@ -193,6 +281,44 @@ pipeline {
     }
 
     post {
+        always {
+            sh '''
+                set -eu
+                CANDIDATE="car-rental-portal-candidate-${BUILD_NUMBER}"
+                ROLLBACK_IMAGE="car-rental-portal:rollback-${BUILD_NUMBER}"
+                if docker image inspect "$ROLLBACK_IMAGE" >/dev/null 2>&1; then
+                    if docker container inspect "$CANDIDATE" >/dev/null 2>&1; then
+                        docker rm --force "$CANDIDATE" >/dev/null 2>&1 || true
+                        docker rm --force car-rental-portal >/dev/null 2>&1 || true
+                        docker image tag "$ROLLBACK_IMAGE" car-rental-portal:latest
+                        if ! docker run --detach \
+                            --name car-rental-portal \
+                            --restart unless-stopped \
+                            --publish "$WEBSITE_PORT:80" \
+                            "$ROLLBACK_IMAGE"; then
+                            echo "Warning: automatic website rollback could not start; previous image archive is in /var/tmp/old_docker_images." >&2
+                        fi
+                    elif ! docker container inspect car-rental-portal >/dev/null 2>&1; then
+                        docker image tag "$ROLLBACK_IMAGE" car-rental-portal:latest
+                        if ! docker run --detach \
+                            --name car-rental-portal \
+                            --restart unless-stopped \
+                            --publish "$WEBSITE_PORT:80" \
+                            "$ROLLBACK_IMAGE"; then
+                            echo "Warning: automatic website rollback could not start; previous image archive is in /var/tmp/old_docker_images." >&2
+                        fi
+                    else
+                        CONTAINER_IMAGE=$(docker container inspect --format '{{.Image}}' car-rental-portal)
+                        LATEST_IMAGE=$(docker image inspect --format '{{.Id}}' car-rental-portal:latest)
+                        if [ "$CONTAINER_IMAGE" != "$LATEST_IMAGE" ]; then
+                            docker image tag "$ROLLBACK_IMAGE" car-rental-portal:latest
+                        fi
+                    fi
+                    docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
+                fi
+            '''
+        }
+
         success {
             slackSend(
                 channel: '#jenkins-jobs-car-rental',

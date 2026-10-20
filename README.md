@@ -21,17 +21,29 @@
 The `Jenkinsfile` checks out this repository on the Jenkins agent labeled
 `jenkins-slave-1`, starts a persistent SonarQube container, runs SonarQube
 analysis in a scanner container, archives a compressed source artifact, and
-deploys the PHP site in a Docker container published on port 80. SonarQube is
-published on port 9000 and stores its data in named Docker volumes; both
-containers use Docker's `unless-stopped` restart policy.
+deploys the PHP site in a Docker container. The website listens on container
+port 80 and is published on host port 8080 by default; SonarQube is published
+on host port 9000 and stores its data in named Docker volumes. Both containers
+use Docker's `unless-stopped` restart policy. Website deployments reuse the
+`car-rental-portal:latest` image tag instead of accumulating a new tagged image
+for each build. Before replacing images, the pipeline archives existing
+`car-rental-portal` image tags under `/var/tmp/old_docker_images/`, then removes
+the old tags after a successful deployment. A rollback image is retained while
+the new website is being health-checked.
 
 The `Dockerfile` packages the PHP site with Apache and the PDO MySQL PHP
 extension. The database is not deployed yet. The current repository does not
 include the `includes/config.php` or `assets/` files referenced by the PHP
 pages, so add those application files and configure the database before
-expecting all pages and styling to work. The Jenkins agent host must have port
-80 available, and its firewall/network rules must permit HTTP traffic to that
-port. Visit `http://<jenkins-slave-1-host>/` after a successful deployment.
+expecting all pages and styling to work. Set the Jenkins `WEBSITE_PORT`
+parameter to an available host port (defaults to `8080`; use `80` only if it is
+free). Allow that port through the agent host's firewall/network rules. Visit
+`http://<jenkins-slave-1-host>:<WEBSITE_PORT>/` after a successful deployment.
+The pipeline briefly stops the current website container to free the port,
+then starts and health-checks the replacement. On a failed deployment it
+attempts to restore the prior container image and removes the failed new image.
+Archived images can be restored with
+`docker load --input /var/tmp/old_docker_images/<archive-name>.tar`.
 
 Configure the Jenkins job to use this repository's `Jenkinsfile` (for example,
 as a Pipeline-from-SCM or Multibranch Pipeline job). To start a build on each
