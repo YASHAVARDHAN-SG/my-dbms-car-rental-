@@ -115,7 +115,7 @@
     </section>
   </main>
   <footer>
-    &copy; <?php echo date('Y'); ?> CarForYou
+    &copy; 2026 CarForYou
   </footer>
 </body>
 </html>
