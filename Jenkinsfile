@@ -188,7 +188,7 @@ pipeline {
                     OLD_IMAGE_REFS=$(docker image ls --format '{{.Repository}}:{{.Tag}}' car-rental-portal | sort -u)
                     OLD_CONTAINER_IMAGE=
 
-                    mkdir -p /var/tmp/old_docker_images
+                    mkdir -p /home/ubuntu/docker_images
                     for OLD_IMAGE_REF in $OLD_IMAGE_REFS; do
                         SAFE_TAG=$(printf '%s' "$OLD_IMAGE_REF" | tr ':/' '--')
                         docker image save \
@@ -200,7 +200,7 @@ pipeline {
                         OLD_CONTAINER_IMAGE=$(docker container inspect --format '{{.Image}}' car-rental-portal)
                         docker image tag "$OLD_CONTAINER_IMAGE" "$ROLLBACK_IMAGE"
                         docker image save \
-                            --output "/var/tmp/old_docker_images/car-rental-portal-running-before-build-${BUILD_NUMBER}.tar" \
+                            --output "/home/ubuntu/docker_images/car-rental-portal-running-before-build-${BUILD_NUMBER}.tar" \
                             "$ROLLBACK_IMAGE"
                     fi
 
