@@ -27,17 +27,33 @@ on host port 9000 and stores its data in named Docker volumes. Both containers
 use Docker's `unless-stopped` restart policy. Website deployments reuse the
 `car-rental-portal:latest` image tag instead of accumulating a new tagged image
 for each build. Before replacing images, the pipeline archives existing
-`car-rental-portal` image tags under `/var/tmp/old_docker_images/`, then removes
+`car-rental-portal` image tags under `/home/ubuntu/docker_images/`, then removes
 the old tags after a successful deployment. A rollback image is retained while
 the new website is being health-checked.
 
 The `Dockerfile` packages the PHP site with Apache and the PDO MySQL PHP
-extension. The database is not deployed yet. The current repository does not
-include the `includes/config.php` or `assets/` files referenced by the PHP
-pages, so add those application files and configure the database before
-expecting all pages and styling to work. Set the Jenkins `WEBSITE_PORT`
-parameter to an available host port (defaults to `8080`; use `80` only if it is
-free). Allow that port through the agent host's firewall/network rules. Visit
+extension. The pipeline runs a persistent MariaDB container and initializes
+its `carrental` database from `carrental.sql` on first startup. The DB is only
+reachable on the private Docker network. Add these Jenkins **Secret text**
+credentials before building:
+
+- `car-rental-db-root-password`: a strong MariaDB root password.
+- `car-rental-db-password`: a separate strong password for the `car_rental_app`
+  database user.
+
+Do not commit these passwords. MariaDB data persists in the
+`car-rental-db-data` Docker volume; the initialization SQL runs only when that
+volume is first created. Changing the Jenkins passwords later does not
+automatically change credentials in an already initialized database.
+
+This repository did not include the original shared includes or styling, and
+the GitHub repository has no `includes/`, `assets/`, or `admin/` directories to
+restore. Minimal replacement includes and CSS now let the homepage render and
+connect to MariaDB. The original login/registration handlers, admin UI, car
+photos, and full theme are still absent; the replacement login and registration
+sections are informational only. Set the Jenkins `WEBSITE_PORT` parameter to
+an available host port (defaults to `8080`; use `80` only if it is free). Allow
+that port through the agent host's firewall/network rules. Visit
 `http://<jenkins-slave-1-host>:<WEBSITE_PORT>/` after a successful deployment.
 The pipeline briefly stops the current website container to free the port,
 then starts and health-checks the replacement. On a failed deployment it

@@ -49,8 +49,9 @@ error_reporting(0);
       <div class="row">
         <div class="col-md-5 col-md-push-7">
           <div class="banner_content">
-            <h1>&nbsp;</h1>
-            <p>&nbsp; </p>
+            <h1>Find the right car for your next journey</h1>
+            <p>Browse available vehicles and plan your next trip.</p>
+            <a class="btn" href="car-listing.php">Browse cars</a>
             </div>
         </div>
       </div>

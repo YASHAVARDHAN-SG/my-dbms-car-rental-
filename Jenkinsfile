@@ -26,6 +26,7 @@ pipeline {
         SONAR_SCANNER_IMAGE = 'sonarsource/sonar-scanner-cli:latest'
         CURL_IMAGE = 'curlimages/curl:8.12.1'
         PACKAGER_IMAGE = 'alpine:3.21'
+        MARIADB_IMAGE = 'mariadb:10.11'
     }
 
     stages {
@@ -169,7 +170,11 @@ pipeline {
 
         stage('Deploy to Docker') {
             steps {
-                sh '''
+                withCredentials([
+                    string(credentialsId: 'car-rental-db-root-password', variable: 'DB_ROOT_PASSWORD'),
+                    string(credentialsId: 'car-rental-db-password', variable: 'DB_PASSWORD')
+                ]) {
+                    sh '''
                     set -eu
                     WEBSITE_PORT=${WEBSITE_PORT:-8080}
                     case "$WEBSITE_PORT" in
@@ -180,6 +185,52 @@ pipeline {
                     esac
                     if [ "$WEBSITE_PORT" -lt 1 ] || [ "$WEBSITE_PORT" -gt 65535 ]; then
                         echo "WEBSITE_PORT must be a port number from 1 to 65535." >&2
+                        exit 1
+                    fi
+
+                    docker network inspect car-rental-app >/dev/null 2>&1 || docker network create car-rental-app
+                    docker volume create car-rental-db-data >/dev/null
+                    if ! docker container inspect car-rental-db >/dev/null 2>&1; then
+                        docker container run --detach \
+                            --name car-rental-db \
+                            --restart unless-stopped \
+                            --network car-rental-app \
+                            --network-alias car-rental-db \
+                            --volume car-rental-db-data:/var/lib/mysql \
+                            --mount "type=bind,src=$WORKSPACE/carrental.sql,dst=/docker-entrypoint-initdb.d/001-carrental.sql,readonly" \
+                            --env MARIADB_ROOT_PASSWORD \
+                            --env MARIADB_DATABASE=carrental \
+                            --env MARIADB_USER=car_rental_app \
+                            --env MARIADB_PASSWORD \
+                            --health-cmd='healthcheck.sh --connect --innodb_initialized' \
+                            --health-interval=10s \
+                            --health-timeout=5s \
+                            --health-retries=12 \
+                            --health-start-period=30s \
+                            "$MARIADB_IMAGE"
+                    elif [ "$(docker container inspect --format '{{.State.Running}}' car-rental-db)" != true ]; then
+                        docker container start car-rental-db
+                    fi
+                    DB_NETWORKS=$(docker network inspect --format '{{range .Containers}}{{.Name}} {{end}}' car-rental-app)
+                    case " $DB_NETWORKS " in
+                        *" car-rental-db "*) ;;
+                        *) docker network connect car-rental-app car-rental-db ;;
+                    esac
+
+                    attempt=0
+                    while [ "$attempt" -lt 90 ]; do
+                        DB_HEALTH=$(docker container inspect \
+                            --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' \
+                            car-rental-db)
+                        if [ "$DB_HEALTH" = healthy ]; then
+                            break
+                        fi
+                        attempt=$((attempt + 1))
+                        sleep 2
+                    done
+                    if [ "$DB_HEALTH" != healthy ]; then
+                        docker container logs car-rental-db
+                        echo "MariaDB did not become healthy; check database container logs and credentials." >&2
                         exit 1
                     fi
 
@@ -215,7 +266,12 @@ pipeline {
                     if ! docker run --detach \
                         --name "$CANDIDATE" \
                         --restart unless-stopped \
+                        --network car-rental-app \
                         --publish "$WEBSITE_PORT:80" \
+                        --env DB_HOST=car-rental-db \
+                        --env DB_NAME=carrental \
+                        --env DB_USER=car_rental_app \
+                        --env DB_PASSWORD \
                         "$IMAGE"; then
                         docker rm --force "$CANDIDATE" >/dev/null 2>&1 || true
                         if [ -n "$OLD_CONTAINER_IMAGE" ]; then
@@ -223,7 +279,12 @@ pipeline {
                             docker run --detach \
                                 --name car-rental-portal \
                                 --restart unless-stopped \
+                                --network car-rental-app \
                                 --publish "$WEBSITE_PORT:80" \
+                                --env DB_HOST=car-rental-db \
+                                --env DB_NAME=carrental \
+                                --env DB_USER=car_rental_app \
+                                --env DB_PASSWORD \
                                 "$ROLLBACK_IMAGE" || true
                         fi
                         docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
@@ -265,7 +326,12 @@ pipeline {
                         if ! docker run --detach \
                             --name car-rental-portal \
                             --restart unless-stopped \
+                            --network car-rental-app \
                             --publish "$WEBSITE_PORT:80" \
+                            --env DB_HOST=car-rental-db \
+                            --env DB_NAME=carrental \
+                            --env DB_USER=car_rental_app \
+                            --env DB_PASSWORD \
                             "$ROLLBACK_IMAGE"; then
                             echo "Warning: rollback container could not be started." >&2
                         fi
@@ -276,14 +342,16 @@ pipeline {
                     fi
                     echo "The deployment candidate did not respond on host port $WEBSITE_PORT; rollback was attempted." >&2
                     exit 1
-                '''
+                    '''
+                }
             }
         }
     }
 
     post {
         always {
-            sh '''
+            withCredentials([string(credentialsId: 'car-rental-db-password', variable: 'DB_PASSWORD')]) {
+                sh '''
                 set -eu
                 WEBSITE_PORT=${WEBSITE_PORT:-8080}
                 CANDIDATE="car-rental-portal-candidate-${BUILD_NUMBER}"
@@ -296,7 +364,12 @@ pipeline {
                         if ! docker run --detach \
                             --name car-rental-portal \
                             --restart unless-stopped \
+                            --network car-rental-app \
                             --publish "$WEBSITE_PORT:80" \
+                            --env DB_HOST=car-rental-db \
+                            --env DB_NAME=carrental \
+                            --env DB_USER=car_rental_app \
+                            --env DB_PASSWORD \
                             "$ROLLBACK_IMAGE"; then
                             echo "Warning: automatic website rollback could not start; previous image archive is in /var/tmp/old_docker_images." >&2
                         fi
@@ -305,7 +378,12 @@ pipeline {
                         if ! docker run --detach \
                             --name car-rental-portal \
                             --restart unless-stopped \
+                            --network car-rental-app \
                             --publish "$WEBSITE_PORT:80" \
+                            --env DB_HOST=car-rental-db \
+                            --env DB_NAME=carrental \
+                            --env DB_USER=car_rental_app \
+                            --env DB_PASSWORD \
                             "$ROLLBACK_IMAGE"; then
                             echo "Warning: automatic website rollback could not start; previous image archive is in /var/tmp/old_docker_images." >&2
                         fi
@@ -318,7 +396,8 @@ pipeline {
                     fi
                     docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
                 fi
-            '''
+                '''
+            }
         }
 
         success {
