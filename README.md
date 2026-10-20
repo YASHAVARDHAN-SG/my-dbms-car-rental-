@@ -32,26 +32,15 @@ the old tags after a successful deployment. A rollback image is retained while
 the new website is being health-checked.
 
 The `Dockerfile` packages the PHP site with Apache and the PDO MySQL PHP
-extension. The pipeline runs a persistent MariaDB container and initializes
-its `carrental` database from `carrental.sql` on first startup. The DB is only
-reachable on the private Docker network. Add these Jenkins **Secret text**
-credentials before building:
+extension. Database provisioning and SQL initialization are intentionally not
+included in this pipeline yet. The PHP application still expects a database
+connection through `includes/config.php`; database-backed pages will return
+HTTP 503 until database configuration and a reachable database are added.
 
-- `car-rental-db-root-password`: a strong MariaDB root password.
-- `car-rental-db-password`: a separate strong password for the `car_rental_app`
-  database user.
-
-Do not commit these passwords. MariaDB data persists in the
-`car-rental-db-data` Docker volume; the initialization SQL runs only when that
-volume is first created. Changing the Jenkins passwords later does not
-automatically change credentials in an already initialized database.
-
-This repository did not include the original shared includes or styling, and
-the GitHub repository has no `includes/`, `assets/`, or `admin/` directories to
-restore. Minimal replacement includes and CSS now let the homepage render and
-connect to MariaDB. The original login/registration handlers, admin UI, car
-photos, and full theme are still absent; the replacement login and registration
-sections are informational only. Set the Jenkins `WEBSITE_PORT` parameter to
+The `includes/` and `assets/` directories contain minimal replacement files;
+the original login/registration handlers, admin UI, car photos, and full theme
+are still absent. The replacement login and registration sections are
+informational only. Set the Jenkins `WEBSITE_PORT` parameter to
 an available host port (defaults to `8080`; use `80` only if it is free). Allow
 that port through the agent host's firewall/network rules. Visit
 `http://<jenkins-slave-1-host>:<WEBSITE_PORT>/` after a successful deployment.
