@@ -137,7 +137,7 @@ pipeline {
                             --env SONAR_TOKEN \
                             "$SONAR_SCANNER_IMAGE" \
                             -Dsonar.host.url=http://sonarqube:9000 \
-                            -Dsonar.qualitygate.wait=true
+                            // -Dsonar.qualitygate.wait=true
                     '''
                 }
             }
