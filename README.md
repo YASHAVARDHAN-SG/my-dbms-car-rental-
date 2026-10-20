@@ -31,16 +31,12 @@ for each build. Before replacing images, the pipeline archives existing
 the old tags after a successful deployment. A rollback image is retained while
 the new website is being health-checked.
 
-The `Dockerfile` packages the PHP site with Apache and the PDO MySQL PHP
-extension. Database provisioning and SQL initialization are intentionally not
-included in this pipeline yet. The PHP application still expects a database
-connection through `includes/config.php`; database-backed pages will return
-HTTP 503 until database configuration and a reachable database are added.
-
-The `includes/` and `assets/` directories contain minimal replacement files;
-the original login/registration handlers, admin UI, car photos, and full theme
-are still absent. The replacement login and registration sections are
-informational only. Set the Jenkins `WEBSITE_PORT` parameter to
+The `Dockerfile` packages the PHP site with Apache. Database provisioning and
+SQL initialization are intentionally not included in this pipeline. The
+homepage is a standalone landing page and does not require a database. Car
+listings, bookings, and other legacy application pages still require the
+database and shared includes, which are not currently present. Set the Jenkins
+`WEBSITE_PORT` parameter to
 an available host port (defaults to `8080`; use `80` only if it is free). Allow
 that port through the agent host's firewall/network rules. Visit
 `http://<jenkins-slave-1-host>:<WEBSITE_PORT>/` after a successful deployment.
