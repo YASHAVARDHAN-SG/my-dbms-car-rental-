@@ -171,6 +171,7 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+                    WEBSITE_PORT=${WEBSITE_PORT:-8080}
                     case "$WEBSITE_PORT" in
                         ''|*[!0-9]*)
                             echo "WEBSITE_PORT must be a port number from 1 to 65535." >&2
@@ -284,6 +285,7 @@ pipeline {
         always {
             sh '''
                 set -eu
+                WEBSITE_PORT=${WEBSITE_PORT:-8080}
                 CANDIDATE="car-rental-portal-candidate-${BUILD_NUMBER}"
                 ROLLBACK_IMAGE="car-rental-portal:rollback-${BUILD_NUMBER}"
                 if docker image inspect "$ROLLBACK_IMAGE" >/dev/null 2>&1; then
