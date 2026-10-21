@@ -142,8 +142,15 @@ available Docker host memory and OOM events if startup fails. The pipeline logs
 the container's OOM status and Docker host memory after a startup timeout.
 Analysis settings are in `sonar-project.properties`; the pipeline waits for
 the SonarQube quality gate, and a failed gate prevents deployment. Configure
-coverage reporting and tests in SonarQube if the project's quality profile
-requires a new-code coverage threshold.
+PHP coverage is generated before analysis: `Dockerfile.test` builds a PHP 8.2,
+PHPUnit, and Xdebug runner; the `PHP Tests and Coverage` stage runs the tests
+and writes `coverage.xml`; and `sonar-project.properties` tells SonarQube to
+import that Clover report. The initial test suite exercises the database-free
+shared helpers in `includes/helpers.php`. This produces real coverage data, but
+does not guarantee that the project's new-code coverage threshold passes:
+SonarQube reports the coverage of all new PHP lines, so add tests for additional
+application logic until the configured gate is met. A missing/empty report or
+failed test stops the pipeline before analysis and deployment.
 The completed
 `dist/car-rental-portal-<build-number>.tar.gz` is archived as a Jenkins build
 artifact.

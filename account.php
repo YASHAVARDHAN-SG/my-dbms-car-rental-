@@ -8,7 +8,7 @@ $successMessage = '';
 $email = '';
 $fullName = '';
 $returnTo = (string) ($_GET['return_to'] ?? $_POST['return_to'] ?? '');
-if (!preg_match('/\Avehical-details\.php\?id=[1-9][0-9]*\z/', $returnTo)) {
+if (!preg_match('/\Avehical-details\.php\?id=[1-9]\d*\z/', $returnTo)) {
     $returnTo = 'my-booking.php';
 }
 

@@ -1,0 +1,11 @@
+{
+  "name": "car-rental/portal",
+  "description": "PHPUnit test dependencies for the Car Rental Portal",
+  "type": "project",
+  "require-dev": {
+    "phpunit/phpunit": "^11.5"
+  },
+  "config": {
+    "sort-packages": true
+  }
+}

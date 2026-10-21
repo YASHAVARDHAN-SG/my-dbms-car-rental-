@@ -124,6 +124,28 @@ pipeline {
             }
         }
 
+        stage('PHP Tests and Coverage') {
+            steps {
+                sh '''
+                    set -eu
+                    docker build --pull \
+                        --file Dockerfile.test \
+                        --tag car-rental-php-test:latest \
+                        .
+                    docker run --rm \
+                        --volume "$WORKSPACE:/usr/src" \
+                        --workdir /usr/src \
+                        --user "$(id -u):$(id -g)" \
+                        --env XDEBUG_MODE=coverage \
+                        car-rental-php-test:latest \
+                        --configuration phpunit.xml \
+                        --coverage-clover coverage.xml
+                    test -s coverage.xml
+                    grep -q '<coverage ' coverage.xml
+                '''
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
