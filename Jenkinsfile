@@ -391,10 +391,13 @@ pipeline {
 
     post {
         always {
-            withCredentials([
-                string(credentialsId: 'car-rental-db-password', variable: 'DB_PASSWORD')
-            ]) {
-                sh '''
+            script {
+                def rollbackImage = "car-rental-portal:rollback-${env.BUILD_NUMBER}"
+                if (sh(returnStatus: true, script: "docker image inspect '${rollbackImage}' >/dev/null 2>&1") == 0) {
+                    withCredentials([
+                        string(credentialsId: 'car-rental-db-password', variable: 'DB_PASSWORD')
+                    ]) {
+                        sh '''
                 set -eu
                 WEBSITE_PORT=${WEBSITE_PORT:-8080}
                 CANDIDATE="car-rental-portal-candidate-${BUILD_NUMBER}"
@@ -440,6 +443,10 @@ pipeline {
                     docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
                 fi
                 '''
+                    }
+                } else {
+                    echo 'No rollback image was created; skipping rollback cleanup.'
+                }
             }
         }
 
