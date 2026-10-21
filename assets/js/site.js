@@ -1,8 +1,5 @@
 const accountButton = document.querySelector(".account-link");
 const accountMenu = document.querySelector("#account-menu");
-const searchForm = document.querySelector("#car-search");
-const searchInput = searchForm.querySelector('input[name="q"]');
-const searchStatus = document.querySelector("#search-status");
 const contrastToggle = document.querySelector("#contrast-toggle");
 const textSizeButton = document.querySelector("#text-size-button");
 const resetDisplayButton = document.querySelector("#reset-display-button");
@@ -60,20 +57,6 @@ document.querySelectorAll(".site-dialog").forEach((dialog) => {
       dialog.close();
     }
   });
-});
-
-searchForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const query = searchInput.value.trim();
-
-  if (!query) {
-    searchStatus.textContent = "Enter a car name or type to search.";
-    searchInput.focus();
-    return;
-  }
-
-  searchStatus.textContent = `We can't search for "${query}" until vehicle listings are available.`;
-  document.querySelector("#availability").scrollIntoView({ behavior: "smooth" });
 });
 
 contrastToggle.addEventListener("change", () => {

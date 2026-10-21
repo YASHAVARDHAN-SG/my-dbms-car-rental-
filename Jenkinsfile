@@ -26,6 +26,7 @@ pipeline {
         SONAR_SCANNER_IMAGE = 'sonarsource/sonar-scanner-cli:latest'
         CURL_IMAGE = 'curlimages/curl:8.12.1'
         PACKAGER_IMAGE = 'alpine:3.21'
+        MARIADB_IMAGE = 'mariadb:11.4'
     }
 
     stages {
@@ -169,7 +170,11 @@ pipeline {
 
         stage('Deploy to Docker') {
             steps {
-                sh '''
+                withCredentials([
+                    string(credentialsId: 'car-rental-db-root-password', variable: 'DB_ROOT_PASSWORD'),
+                    string(credentialsId: 'car-rental-db-password', variable: 'DB_PASSWORD')
+                ]) {
+                    sh '''
                     set -eu
                     WEBSITE_PORT=${WEBSITE_PORT:-8080}
                     case "$WEBSITE_PORT" in
@@ -184,6 +189,66 @@ pipeline {
                     fi
 
                     docker network inspect car-rental-app >/dev/null 2>&1 || docker network create car-rental-app
+                    docker volume create car-rental-db-data >/dev/null
+                    DB_CONTAINER=car-rental-db
+                    if ! docker container inspect "$DB_CONTAINER" >/dev/null 2>&1; then
+                        docker run --detach \
+                            --name "$DB_CONTAINER" \
+                            --restart unless-stopped \
+                            --network car-rental-app \
+                            --network-alias car-rental-db \
+                            --env MARIADB_ROOT_PASSWORD="$DB_ROOT_PASSWORD" \
+                            --env MARIADB_DATABASE=carrental \
+                            --env MARIADB_USER=car_rental_app \
+                            --env MARIADB_PASSWORD="$DB_PASSWORD" \
+                            --health-cmd='healthcheck.sh --connect --innodb_initialized' \
+                            --health-interval=10s \
+                            --health-timeout=5s \
+                            --health-retries=10 \
+                            --volume car-rental-db-data:/var/lib/mysql \
+                            --volume "$WORKSPACE/carrental.sql:/docker-entrypoint-initdb.d/001-carrental.sql:ro" \
+                            "$MARIADB_IMAGE"
+                    elif [ "$(docker container inspect --format '{{.State.Running}}' "$DB_CONTAINER")" != true ]; then
+                        docker container start "$DB_CONTAINER"
+                    fi
+
+                    DB_NETWORKS=$(docker container inspect --format '{{json .NetworkSettings.Networks}}' "$DB_CONTAINER")
+                    if ! printf '%s' "$DB_NETWORKS" | grep -q '"car-rental-app"'; then
+                        docker network connect car-rental-app "$DB_CONTAINER"
+                    fi
+
+                    attempt=0
+                    while [ "$attempt" -lt 60 ]; do
+                        if TABLE_COUNT=$(docker run --rm \
+                            --network car-rental-app \
+                            --env MYSQL_PWD="$DB_PASSWORD" \
+                            "$MARIADB_IMAGE" \
+                            mariadb \
+                                --connect-timeout=5 \
+                                --host=car-rental-db \
+                                --user=car_rental_app \
+                                --database=carrental \
+                                --batch \
+                                --skip-column-names \
+                                --execute="SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('tblusers', 'tblbrands', 'tblvehicles', 'tblbooking')" \
+                            2>/dev/null); then
+                            if [ "$TABLE_COUNT" != 4 ]; then
+                                echo "The persistent MariaDB database is missing required application tables." >&2
+                                echo "Back up and migrate the existing database before deploying; the pipeline will not replace or reset it." >&2
+                                exit 1
+                            fi
+                            break
+                        fi
+                        attempt=$((attempt + 1))
+                        sleep 5
+                    done
+                    if [ "$attempt" -ge 60 ]; then
+                        echo "MariaDB did not become ready with the configured application credentials." >&2
+                        echo "For an existing data volume, verify the Jenkins DB credentials and perform any required schema migration manually." >&2
+                        docker logs --tail 80 "$DB_CONTAINER" || true
+                        exit 1
+                    fi
+
                     IMAGE=car-rental-portal:latest
                     CANDIDATE="car-rental-portal-candidate-${BUILD_NUMBER}"
                     ROLLBACK_IMAGE="car-rental-portal:rollback-${BUILD_NUMBER}"
@@ -218,6 +283,10 @@ pipeline {
                         --restart unless-stopped \
                         --network car-rental-app \
                         --publish "$WEBSITE_PORT:80" \
+                        --env DB_HOST=car-rental-db \
+                        --env DB_NAME=carrental \
+                        --env DB_USER=car_rental_app \
+                        --env DB_PASSWORD \
                         "$IMAGE"; then
                         docker rm --force "$CANDIDATE" >/dev/null 2>&1 || true
                         if [ -n "$OLD_CONTAINER_IMAGE" ]; then
@@ -227,6 +296,10 @@ pipeline {
                                 --restart unless-stopped \
                                 --network car-rental-app \
                                 --publish "$WEBSITE_PORT:80" \
+                                --env DB_HOST=car-rental-db \
+                                --env DB_NAME=carrental \
+                                --env DB_USER=car_rental_app \
+                                --env DB_PASSWORD \
                                 "$ROLLBACK_IMAGE" || true
                         fi
                         docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
@@ -243,7 +316,7 @@ pipeline {
                             --silent --show-error --output /dev/null --write-out '%{http_code}' \
                             "http://127.0.0.1:$WEBSITE_PORT/"); then
                             case "$HTTP_STATUS" in
-                                2??|503)
+                                2??)
                                     docker rename "$CANDIDATE" car-rental-portal
                                     docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
                                     for OLD_IMAGE_REF in $OLD_IMAGE_REFS; do
@@ -274,6 +347,10 @@ pipeline {
                             --restart unless-stopped \
                             --network car-rental-app \
                             --publish "$WEBSITE_PORT:80" \
+                            --env DB_HOST=car-rental-db \
+                            --env DB_NAME=carrental \
+                            --env DB_USER=car_rental_app \
+                            --env DB_PASSWORD \
                             "$ROLLBACK_IMAGE"; then
                             echo "Warning: rollback container could not be started." >&2
                         fi
@@ -285,13 +362,17 @@ pipeline {
                     echo "The deployment candidate did not respond on host port $WEBSITE_PORT; rollback was attempted." >&2
                     exit 1
                     '''
+                }
             }
         }
     }
 
     post {
         always {
-            sh '''
+            withCredentials([
+                string(credentialsId: 'car-rental-db-password', variable: 'DB_PASSWORD')
+            ]) {
+                sh '''
                 set -eu
                 WEBSITE_PORT=${WEBSITE_PORT:-8080}
                 CANDIDATE="car-rental-portal-candidate-${BUILD_NUMBER}"
@@ -306,6 +387,10 @@ pipeline {
                             --restart unless-stopped \
                             --network car-rental-app \
                             --publish "$WEBSITE_PORT:80" \
+                            --env DB_HOST=car-rental-db \
+                            --env DB_NAME=carrental \
+                            --env DB_USER=car_rental_app \
+                            --env DB_PASSWORD \
                             "$ROLLBACK_IMAGE"; then
                             echo "Warning: automatic website rollback could not start; previous image archive is in /var/tmp/old_docker_images." >&2
                         fi
@@ -316,6 +401,10 @@ pipeline {
                             --restart unless-stopped \
                             --network car-rental-app \
                             --publish "$WEBSITE_PORT:80" \
+                            --env DB_HOST=car-rental-db \
+                            --env DB_NAME=carrental \
+                            --env DB_USER=car_rental_app \
+                            --env DB_PASSWORD \
                             "$ROLLBACK_IMAGE"; then
                             echo "Warning: automatic website rollback could not start; previous image archive is in /var/tmp/old_docker_images." >&2
                         fi
@@ -329,6 +418,7 @@ pipeline {
                     docker image rm "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
                 fi
                 '''
+            }
         }
 
         success {

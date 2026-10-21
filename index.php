@@ -1,3 +1,26 @@
+<?php
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/helpers.php';
+
+$featuredCars = [];
+if ($dbh instanceof PDO) {
+    try {
+        $featuredCars = $dbh->query(
+            'SELECT vehicles.id, vehicles.VehiclesTitle, vehicles.VehiclesOverview,
+                    vehicles.PricePerDay, vehicles.FuelType, vehicles.ModelYear,
+                    vehicles.SeatingCapacity, brands.BrandName
+             FROM tblvehicles AS vehicles
+             INNER JOIN tblbrands AS brands ON brands.id = vehicles.VehiclesBrand
+             ORDER BY vehicles.id DESC
+             LIMIT 6'
+        )->fetchAll();
+    } catch (PDOException $exception) {
+        error_log('Featured vehicle query failed: ' . $exception->getMessage());
+        $databaseError = 'Vehicle listings could not be loaded. Please try again later.';
+        http_response_code(503);
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -44,7 +67,7 @@
         </a>
       </div>
 
-      <button class="login-link" type="button" data-open-dialog="account-dialog">LOGIN / REGISTER</button>
+      <a class="login-link" href="account.php">LOGIN / REGISTER</a>
     </div>
   </header>
 
@@ -53,7 +76,7 @@
       <ul class="nav-links">
         <li><a href="./">HOME</a></li>
         <li><a href="#about">ABOUT US</a></li>
-        <li><a href="#availability">CAR LISTING</a></li>
+        <li><a href="car-listing.php">CAR LISTING</a></li>
         <li><a href="#faqs">FAQS</a></li>
         <li><a href="mailto:info@gmail.com">CONTACT US</a></li>
       </ul>
@@ -66,12 +89,12 @@
           <span aria-hidden="true">⌄</span>
         </button>
         <div class="account-menu" id="account-menu" hidden>
-          <button type="button" data-open-dialog="account-dialog">Login / Register</button>
-          <a href="#availability">Browse listings</a>
+          <a href="account.php">Login / Register</a>
+          <a href="car-listing.php">Browse listings</a>
         </div>
       </div>
-      <form class="search-form" id="car-search" role="search">
-        <input type="search" name="q" placeholder="Search..." aria-label="Search cars">
+      <form class="search-form" id="car-search" action="car-listing.php" method="get" role="search">
+        <input type="search" name="q" placeholder="Search cars..." aria-label="Search cars">
         <button type="submit" aria-label="Search">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
             <circle cx="10.8" cy="10.8" r="6.3"/>
@@ -101,19 +124,51 @@
       <div class="content-inner">
         <div class="section-heading" id="about">
           <h1>Find the Best <span>Car For You</span></h1>
-          <p>Discover a car that fits your next journey. Vehicle listings and bookings will be available after database setup is complete.</p>
+          <p>Discover a car that fits your next journey, browse available vehicles, and send a booking request online.</p>
         </div>
         <section class="availability-panel" id="availability" aria-labelledby="availability-title">
           <h2 id="availability-title">Your next drive starts here</h2>
-          <p class="availability-copy">We’re preparing our vehicle catalogue. Search and booking will be available when the database is connected.</p>
-          <button class="primary-button" type="button" data-open-dialog="account-dialog">Get updates</button>
-          <p class="search-status" id="search-status" role="status" aria-live="polite"></p>
+          <p class="availability-copy">Search our vehicle catalogue and request the dates that work for your trip.</p>
+          <a class="primary-button" href="car-listing.php">Browse all cars</a>
+          <?php if ($databaseError !== null): ?>
+            <p class="database-notice" role="status"><?= h($databaseError) ?></p>
+          <?php elseif ($featuredCars === []): ?>
+            <p class="database-notice" role="status">No vehicles are listed yet. Please check back soon.</p>
+          <?php else: ?>
+            <p class="database-notice"><?= count($featuredCars) ?> vehicles are ready to browse.</p>
+          <?php endif; ?>
         </section>
+        <?php if ($featuredCars !== []): ?>
+          <div class="vehicle-grid">
+            <?php foreach ($featuredCars as $car): ?>
+              <article class="vehicle-card">
+                <a class="vehicle-card-image" href="vehical-details.php?id=<?= (int) $car['id'] ?>">
+                  <img
+                    src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&amp;fit=crop&amp;w=900&amp;q=80"
+                    alt="<?= h($car['BrandName'] . ' ' . $car['VehiclesTitle']) ?>"
+                    loading="lazy"
+                  >
+                  <span><?= h($car['FuelType']) ?></span>
+                </a>
+                <div class="vehicle-card-body">
+                  <p class="vehicle-brand"><?= h($car['BrandName']) ?> · <?= (int) $car['ModelYear'] ?></p>
+                  <h3><a href="vehical-details.php?id=<?= (int) $car['id'] ?>"><?= h($car['VehiclesTitle']) ?></a></h3>
+                  <p class="vehicle-summary"><?= h($car['VehiclesOverview']) ?></p>
+                  <div class="vehicle-card-footer">
+                    <span><strong>$<?= number_format((float) $car['PricePerDay'], 2) ?></strong> / day</span>
+                    <span><?= (int) $car['SeatingCapacity'] ?> seats</span>
+                  </div>
+                  <a class="vehicle-details-link" href="vehical-details.php?id=<?= (int) $car['id'] ?>">View details <span aria-hidden="true">→</span></a>
+                </div>
+              </article>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
         <section class="faq-section" id="faqs" aria-labelledby="faq-title">
           <h2 id="faq-title">Frequently asked questions</h2>
           <details>
             <summary>When can I browse and book cars?</summary>
-            <p>Car listings and booking features will be enabled after the vehicle database is set up.</p>
+            <p>Browse the current catalogue any time. Sign in or create an account to send a booking request.</p>
           </details>
           <details>
             <summary>How can I contact the team?</summary>
@@ -123,19 +178,6 @@
       </div>
     </section>
   </main>
-
-  <dialog class="site-dialog" id="account-dialog" aria-labelledby="account-dialog-title">
-    <form method="dialog" class="dialog-close-form">
-      <button class="dialog-close" aria-label="Close dialog">×</button>
-    </form>
-    <p class="dialog-eyebrow">CAR RENTAL PORTAL</p>
-    <h2 id="account-dialog-title">Accounts are coming soon</h2>
-    <p>Login, registration, and booking are not available until database setup is complete. Contact us if you need help.</p>
-    <div class="dialog-actions">
-      <a class="primary-button" href="mailto:info@gmail.com">Email support</a>
-      <button class="secondary-button" type="button" data-close-dialog>Close</button>
-    </div>
-  </dialog>
 
   <dialog class="site-dialog settings-dialog" id="settings-dialog" aria-labelledby="settings-dialog-title">
     <form method="dialog" class="dialog-close-form">

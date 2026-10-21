@@ -1,225 +1,149 @@
-<?php 
-session_start();
-include('includes/config.php');
-error_reporting(0);
-?>
+<?php
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/helpers.php';
 
-<!DOCTYPE HTML>
+$queryText = trim((string) ($_GET['q'] ?? ''));
+$brandId = filter_var($_GET['brand'] ?? null, FILTER_VALIDATE_INT);
+$fuelType = trim((string) ($_GET['fuel'] ?? ''));
+$brands = [];
+$cars = [];
+
+if ($dbh instanceof PDO) {
+    try {
+        $brands = $dbh->query('SELECT id, BrandName FROM tblbrands ORDER BY BrandName')->fetchAll();
+
+        $sql = 'SELECT vehicles.id, vehicles.VehiclesTitle, vehicles.VehiclesOverview,
+                       vehicles.PricePerDay, vehicles.FuelType, vehicles.ModelYear,
+                       vehicles.SeatingCapacity, brands.BrandName
+                FROM tblvehicles AS vehicles
+                INNER JOIN tblbrands AS brands ON brands.id = vehicles.VehiclesBrand
+                WHERE 1 = 1';
+        $parameters = [];
+
+        if ($queryText !== '') {
+            $sql .= ' AND (vehicles.VehiclesTitle LIKE :search_title
+                      OR vehicles.VehiclesOverview LIKE :search_overview
+                      OR brands.BrandName LIKE :search_brand
+                      OR vehicles.FuelType LIKE :search_fuel)';
+            $searchTerm = '%' . $queryText . '%';
+            $parameters['search_title'] = $searchTerm;
+            $parameters['search_overview'] = $searchTerm;
+            $parameters['search_brand'] = $searchTerm;
+            $parameters['search_fuel'] = $searchTerm;
+        }
+
+        if ($brandId !== false && $brandId !== null) {
+            $sql .= ' AND vehicles.VehiclesBrand = :brand_id';
+            $parameters['brand_id'] = $brandId;
+        }
+
+        if ($fuelType !== '') {
+            $sql .= ' AND vehicles.FuelType = :fuel_type';
+            $parameters['fuel_type'] = $fuelType;
+        }
+
+        $sql .= ' ORDER BY vehicles.id DESC LIMIT 60';
+        $statement = $dbh->prepare($sql);
+        $statement->execute($parameters);
+        $cars = $statement->fetchAll();
+    } catch (PDOException $exception) {
+        error_log('Car listing query failed: ' . $exception->getMessage());
+        $databaseError = 'Vehicle listings could not be loaded. Please try again later.';
+        http_response_code(503);
+    }
+}
+?>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-
-<title>Car Rental Portal | Car Listing</title>
-<!--Bootstrap -->
-<link rel="stylesheet" href="assets/css/bootstrap.min.css" type="text/css">
-<!--Custome Style -->
-<link rel="stylesheet" href="assets/css/style.css" type="text/css">
-<!--OWL Carousel slider-->
-<link rel="stylesheet" href="assets/css/owl.carousel.css" type="text/css">
-<link rel="stylesheet" href="assets/css/owl.transitions.css" type="text/css">
-<!--slick-slider -->
-<link href="assets/css/slick.css" rel="stylesheet">
-<!--bootstrap-slider -->
-<link href="assets/css/bootstrap-slider.min.css" rel="stylesheet">
-<!--FontAwesome Font Style -->
-<link href="assets/css/font-awesome.min.css" rel="stylesheet">
-
-<!-- SWITCHER -->
-		<link rel="stylesheet" id="switcher-css" type="text/css" href="assets/switcher/css/switcher.css" media="all" />
-		<link rel="alternate stylesheet" type="text/css" href="assets/switcher/css/red.css" title="red" media="all" data-default-color="true" />
-		<link rel="alternate stylesheet" type="text/css" href="assets/switcher/css/orange.css" title="orange" media="all" />
-		<link rel="alternate stylesheet" type="text/css" href="assets/switcher/css/blue.css" title="blue" media="all" />
-		<link rel="alternate stylesheet" type="text/css" href="assets/switcher/css/pink.css" title="pink" media="all" />
-		<link rel="alternate stylesheet" type="text/css" href="assets/switcher/css/green.css" title="green" media="all" />
-		<link rel="alternate stylesheet" type="text/css" href="assets/switcher/css/purple.css" title="purple" media="all" />
-        
-<!-- Fav and touch icons -->
-<link rel="apple-touch-icon-precomposed" sizes="144x144" href="assets/images/favicon-icon/apple-touch-icon-144-precomposed.png">
-<link rel="apple-touch-icon-precomposed" sizes="114x114" href="assets/images/favicon-icon/apple-touch-icon-114-precomposed.html">
-<link rel="apple-touch-icon-precomposed" sizes="72x72" href="assets/images/favicon-icon/apple-touch-icon-72-precomposed.png">
-<link rel="apple-touch-icon-precomposed" href="assets/images/favicon-icon/apple-touch-icon-57-precomposed.png">
-<link rel="shortcut icon" href="assets/images/favicon-icon/favicon.png">
-<link href="https://fonts.googleapis.com/css?family=Lato:300,400,700,900" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Browse and search available rental cars.">
+  <title>Car listings | Car Rental Portal</title>
+  <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-
-<!-- Start Switcher -->
-<?php include('includes/colorswitcher.php');?>
-<!-- /Switcher -->  
-
-<!--Header--> 
-<?php include('includes/header.php');?>
-<!-- /Header --> 
-
-<!--Page Header-->
-<section class="page-header listing_page">
-  <div class="container">
-    <div class="page-header_wrap">
-      <div class="page-heading">
-        <h1>Car Listing</h1>
-      </div>
-      <ul class="coustom-breadcrumb">
-        <li><a href="#">Home</a></li>
-        <li>Car Listing</li>
-      </ul>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.php" aria-label="Car Rental Portal home">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span class="brand-name">Car Rental<br>Portal</span>
+      </a>
+      <nav class="page-nav" aria-label="Main navigation">
+        <a href="index.php">Home</a>
+        <a href="car-listing.php" aria-current="page">Car listing</a>
+        <a href="account.php">Login / Register</a>
+      </nav>
     </div>
-  </div>
-  <!-- Dark Overlay-->
-  <div class="dark-overlay"></div>
-</section>
-<!-- /Page Header--> 
+  </header>
+  <main class="page-main">
+    <section class="page-heading">
+      <p class="dialog-eyebrow">FIND YOUR NEXT RIDE</p>
+      <h1>Available cars</h1>
+      <p>Search our current vehicle catalogue and open a car to see its details.</p>
+    </section>
+    <section class="catalogue" aria-label="Vehicle catalogue">
+      <form class="catalogue-filters" action="car-listing.php" method="get">
+        <label>
+          Search
+          <input type="search" name="q" value="<?= h($queryText) ?>" placeholder="Make, model, fuel type">
+        </label>
+        <label>
+          Brand
+          <select name="brand">
+            <option value="">All brands</option>
+            <?php foreach ($brands as $brand): ?>
+              <option value="<?= (int) $brand['id'] ?>" <?= $brandId == $brand['id'] ? 'selected' : '' ?>>
+                <?= h($brand['BrandName']) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <label>
+          Fuel
+          <select name="fuel">
+            <option value="">Any fuel</option>
+            <?php foreach (['Petrol', 'Diesel', 'Hybrid', 'Electric', 'CNG'] as $fuel): ?>
+              <option value="<?= h($fuel) ?>" <?= $fuelType === $fuel ? 'selected' : '' ?>><?= h($fuel) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <button class="primary-button" type="submit">Apply filters</button>
+        <a class="secondary-button" href="car-listing.php">Clear</a>
+      </form>
 
-<!--Listing-->
-<section class="listing-page">
-  <div class="container">
-    <div class="row">
-      <div class="col-md-9 col-md-push-3">
-        <div class="result-sorting-wrapper">
-          <div class="sorting-count">
-<?php 
-//Query for Listing count
-$sql = "SELECT id from tblvehicles";
-$query = $dbh -> prepare($sql);
-$query->execute();
-$results=$query->fetchAll(PDO::FETCH_OBJ);
-$cnt=$query->rowCount();
-?>
-<p><span><?php echo htmlentities($cnt);?> Listings</span></p>
-</div>
-</div>
-
-<?php $sql = "SELECT tblvehicles.*,tblbrands.BrandName,tblbrands.id as bid  from tblvehicles join tblbrands on tblbrands.id=tblvehicles.VehiclesBrand";
-$query = $dbh -> prepare($sql);
-$query->execute();
-$results=$query->fetchAll(PDO::FETCH_OBJ);
-$cnt=1;
-if($query->rowCount() > 0)
-{
-foreach($results as $result)
-{  ?>
-        <div class="product-listing-m gray-bg">
-          <div class="product-listing-img"><img src="admin/img/vehicleimages/<?php echo htmlentities($result->Vimage1);?>" class="img-responsive" alt="Image" /> </a> 
-          </div>
-          <div class="product-listing-content">
-            <h5><a href="vehical-details.php?vhid=<?php echo htmlentities($result->id);?>"><?php echo htmlentities($result->BrandName);?> , <?php echo htmlentities($result->VehiclesTitle);?></a></h5>
-            <p class="list-price">$<?php echo htmlentities($result->PricePerDay);?> Per Day</p>
-            <ul>
-              <li><i class="fa fa-user" aria-hidden="true"></i><?php echo htmlentities($result->SeatingCapacity);?> seats</li>
-              <li><i class="fa fa-calendar" aria-hidden="true"></i><?php echo htmlentities($result->ModelYear);?> model</li>
-              <li><i class="fa fa-car" aria-hidden="true"></i><?php echo htmlentities($result->FuelType);?></li>
-            </ul>
-            <a href="vehical-details.php?vhid=<?php echo htmlentities($result->id);?>" class="btn">View Details <span class="angle_arrow"><i class="fa fa-angle-right" aria-hidden="true"></i></span></a>
-          </div>
-        </div>
-      <?php }} ?>
-         </div>
-      
-      <!--Side-Bar-->
-      <aside class="col-md-3 col-md-pull-9">
-        <div class="sidebar_widget">
-          <div class="widget_heading">
-            <h5><i class="fa fa-filter" aria-hidden="true"></i> Find Your  Car </h5>
-          </div>
-          <div class="sidebar_filter">
-            <form action="search-carresult.php" method="post">
-              <div class="form-group select">
-                <select class="form-control" name="brand">
-                  <option>Select Brand</option>
-
-                  <?php $sql = "SELECT * from  tblbrands ";
-$query = $dbh -> prepare($sql);
-$query->execute();
-$results=$query->fetchAll(PDO::FETCH_OBJ);
-$cnt=1;
-if($query->rowCount() > 0)
-{
-foreach($results as $result)
-{       ?>  
-<option value="<?php echo htmlentities($result->id);?>"><?php echo htmlentities($result->BrandName);?></option>
-<?php }} ?>
-                 
-                </select>
-              </div>
-              <div class="form-group select">
-                <select class="form-control" name="fueltype">
-                  <option>Select Fuel Type</option>
-<option value="Petrol">Petrol</option>
-<option value="Diesel">Diesel</option>
-<option value="CNG">CNG</option>
-                </select>
-              </div>
-             
-              <div class="form-group">
-                <button type="submit" class="btn btn-block"><i class="fa fa-search" aria-hidden="true"></i> Search Car</button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <div class="sidebar_widget">
-          <div class="widget_heading">
-            <h5><i class="fa fa-car" aria-hidden="true"></i> Recently Listed Cars</h5>
-          </div>
-          <div class="recent_addedcars">
-            <ul>
-<?php $sql = "SELECT tblvehicles.*,tblbrands.BrandName,tblbrands.id as bid  from tblvehicles join tblbrands on tblbrands.id=tblvehicles.VehiclesBrand order by id desc limit 4";
-$query = $dbh -> prepare($sql);
-$query->execute();
-$results=$query->fetchAll(PDO::FETCH_OBJ);
-$cnt=1;
-if($query->rowCount() > 0)
-{
-foreach($results as $result)
-{  ?>
-
-              <li class="gray-bg">
-                <div class="recent_post_img"> <a href="vehical-details.php?vhid=<?php echo htmlentities($result->id);?>"><img src="admin/img/vehicleimages/<?php echo htmlentities($result->Vimage1);?>" alt="image"></a> </div>
-                <div class="recent_post_title"> <a href="vehical-details.php?vhid=<?php echo htmlentities($result->id);?>"><?php echo htmlentities($result->BrandName);?> , <?php echo htmlentities($result->VehiclesTitle);?></a>
-                  <p class="widget_price">$<?php echo htmlentities($result->PricePerDay);?> Per Day</p>
+      <?php if ($databaseError !== null): ?>
+        <p class="page-message page-message-error" role="alert"><?= h($databaseError) ?></p>
+      <?php elseif ($cars === []): ?>
+        <p class="page-message">No vehicles match this search. Try another keyword or clear the filters.</p>
+      <?php else: ?>
+        <p class="catalogue-count"><?= count($cars) ?> car<?= count($cars) === 1 ? '' : 's' ?> found</p>
+        <div class="vehicle-grid">
+          <?php foreach ($cars as $car): ?>
+            <article class="vehicle-card">
+              <a class="vehicle-card-image" href="vehical-details.php?id=<?= (int) $car['id'] ?>">
+                <img
+                  src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&amp;fit=crop&amp;w=900&amp;q=80"
+                  alt="<?= h($car['BrandName'] . ' ' . $car['VehiclesTitle']) ?>"
+                  loading="lazy"
+                >
+                <span><?= h($car['FuelType']) ?></span>
+              </a>
+              <div class="vehicle-card-body">
+                <p class="vehicle-brand"><?= h($car['BrandName']) ?> · <?= (int) $car['ModelYear'] ?></p>
+                <h2><a href="vehical-details.php?id=<?= (int) $car['id'] ?>"><?= h($car['VehiclesTitle']) ?></a></h2>
+                <p class="vehicle-summary"><?= h($car['VehiclesOverview']) ?></p>
+                <div class="vehicle-card-footer">
+                  <span><strong>$<?= number_format((float) $car['PricePerDay'], 2) ?></strong> / day</span>
+                  <span><?= (int) $car['SeatingCapacity'] ?> seats</span>
                 </div>
-              </li>
-              <?php }} ?>
-              
-            </ul>
-          </div>
+                <a class="vehicle-details-link" href="vehical-details.php?id=<?= (int) $car['id'] ?>">View details <span aria-hidden="true">→</span></a>
+              </div>
+            </article>
+          <?php endforeach; ?>
         </div>
-      </aside>
-      <!--/Side-Bar--> 
-    </div>
-  </div>
-</section>
-<!-- /Listing--> 
-
-<!--Footer -->
-<?php include('includes/footer.php');?>
-<!-- /Footer--> 
-
-<!--Back to top-->
-<div id="back-top" class="back-top"> <a href="#top"><i class="fa fa-angle-up" aria-hidden="true"></i> </a> </div>
-<!--/Back to top--> 
-
-<!--Login-Form -->
-<?php include('includes/login.php');?>
-<!--/Login-Form --> 
-
-<!--Register-Form -->
-<?php include('includes/registration.php');?>
-
-<!--/Register-Form --> 
-
-<!--Forgot-password-Form -->
-<?php include('includes/forgotpassword.php');?>
-
-<!-- Scripts --> 
-<script src="assets/js/jquery.min.js"></script>
-<script src="assets/js/bootstrap.min.js"></script> 
-<script src="assets/js/interface.js"></script> 
-<!--Switcher-->
-<script src="assets/switcher/js/switcher.js"></script>
-<!--bootstrap-slider-JS--> 
-<script src="assets/js/bootstrap-slider.min.js"></script> 
-<!--Slider-JS--> 
-<script src="assets/js/slick.min.js"></script> 
-<script src="assets/js/owl.carousel.min.js"></script>
-
+      <?php endif; ?>
+    </section>
+  </main>
 </body>
 </html>

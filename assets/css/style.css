@@ -669,3 +669,446 @@
         padding: 26px 22px;
       }
     }
+
+    .login-link {
+      text-decoration: none;
+    }
+
+    .page-main {
+      width: min(100% - 48px, 1100px);
+      min-height: calc(100vh - 112px);
+      margin: 0 auto;
+      padding: 48px 0 72px;
+    }
+
+    .page-nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .page-nav a,
+    .text-button {
+      color: #242a31;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .page-nav a:hover,
+    .page-nav a:focus-visible,
+    .text-button:hover,
+    .text-button:focus-visible {
+      color: #e3293b;
+    }
+
+    .page-nav form {
+      margin: 0;
+    }
+
+    .text-button {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .page-heading {
+      margin-bottom: 28px;
+    }
+
+    .page-heading h1,
+    .auth-card h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 40px);
+      line-height: 1.2;
+    }
+
+    .page-heading > p:last-child,
+    .auth-intro {
+      color: #636b74;
+    }
+
+    .catalogue-filters,
+    .auth-card,
+    .booking-form,
+    .page-message,
+    .booking-card,
+    .vehicle-detail-content,
+    .vehicle-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 12px 35px rgb(30 42 55 / 6%);
+    }
+
+    .catalogue-filters {
+      display: grid;
+      grid-template-columns: minmax(180px, 2fr) minmax(150px, 1fr) minmax(140px, 1fr) auto auto;
+      align-items: end;
+      gap: 14px;
+      margin-bottom: 24px;
+      padding: 20px;
+    }
+
+    .catalogue-filters label,
+    .auth-form label,
+    .booking-form label {
+      display: grid;
+      gap: 7px;
+      color: #333a42;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .catalogue-filters input,
+    .catalogue-filters select,
+    .auth-form input,
+    .booking-form input,
+    .booking-form textarea {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid #cfd5dc;
+      border-radius: 5px;
+      background: #fff;
+      color: #171717;
+      font: inherit;
+    }
+
+    .booking-form textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .catalogue-count {
+      color: #636b74;
+      font-size: 14px;
+    }
+
+    .vehicle-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+      margin-top: 24px;
+    }
+
+    .vehicle-card {
+      overflow: hidden;
+    }
+
+    .vehicle-card-image {
+      position: relative;
+      height: 210px;
+      display: block;
+      overflow: hidden;
+      background: #e4e7ea;
+    }
+
+    .vehicle-card-image img,
+    .vehicle-detail-image img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .vehicle-card-image > span {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      color: #222;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .vehicle-card-body {
+      padding: 18px;
+    }
+
+    .vehicle-card-body h2,
+    .vehicle-card-body h3,
+    .booking-card h2 {
+      margin: 5px 0 10px;
+      font-size: 20px;
+    }
+
+    .vehicle-card-body h2 a,
+    .vehicle-card-body h3 a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .vehicle-brand {
+      margin: 0;
+      color: #e3293b;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .vehicle-summary {
+      min-height: 48px;
+      color: #636b74;
+      font-size: 14px;
+    }
+
+    .vehicle-card-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 0;
+      border-top: 1px solid #edf0f2;
+      color: #545d66;
+      font-size: 13px;
+    }
+
+    .vehicle-card-footer strong,
+    .vehicle-detail-price {
+      color: #191d22;
+    }
+
+    .vehicle-details-link {
+      color: #d92538;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .auth-card {
+      width: min(100%, 500px);
+      margin: 12px auto;
+      padding: clamp(22px, 5vw, 38px);
+    }
+
+    .auth-form,
+    .booking-form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .auth-form {
+      margin-top: 24px;
+    }
+
+    .auth-switch {
+      margin: 20px 0 0;
+      color: #555e67;
+      text-align: center;
+    }
+
+    .auth-switch a,
+    .breadcrumb a {
+      color: #d92538;
+      font-weight: 700;
+    }
+
+    .page-message {
+      margin: 18px 0;
+      padding: 20px;
+      color: #48515b;
+    }
+
+    .page-message h2,
+    .page-message p {
+      margin-top: 0;
+    }
+
+    .page-message-error {
+      border-color: #f2b8bd;
+      color: #8d1c28;
+      background: #fff5f5;
+    }
+
+    .database-notice {
+      margin: 12px 0 0;
+      color: #68717b;
+      font-size: 13px;
+    }
+
+    .breadcrumb {
+      margin: 0 0 22px;
+      color: #68717b;
+    }
+
+    .vehicle-detail {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+      align-items: start;
+      gap: 28px;
+    }
+
+    .vehicle-detail-image {
+      height: 420px;
+      overflow: hidden;
+      border-radius: 12px;
+      background: #e4e7ea;
+    }
+
+    .vehicle-detail-content {
+      padding: 26px;
+    }
+
+    .vehicle-detail-content h1 {
+      margin: 7px 0;
+      font-size: clamp(28px, 4vw, 40px);
+    }
+
+    .vehicle-detail-price {
+      margin: 8px 0 18px;
+      font-size: 25px;
+      font-weight: 800;
+    }
+
+    .vehicle-detail-price span {
+      color: #68717b;
+      font-size: 14px;
+      font-weight: 400;
+    }
+
+    .vehicle-detail-overview {
+      color: #555e67;
+    }
+
+    .vehicle-specifications {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .vehicle-specifications div {
+      padding: 12px;
+      border-radius: 6px;
+      background: #f4f5f6;
+    }
+
+    .vehicle-specifications dt {
+      color: #68717b;
+      font-size: 12px;
+    }
+
+    .vehicle-specifications dd {
+      margin: 4px 0 0;
+      font-weight: 700;
+    }
+
+    .booking-form {
+      margin-top: 24px;
+      padding: 20px;
+      box-shadow: none;
+    }
+
+    .booking-form h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .booking-form .auth-intro {
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .booking-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .booking-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .booking-card h2 {
+      margin-bottom: 5px;
+    }
+
+    .booking-card p:last-child {
+      margin: 0;
+      color: #68717b;
+    }
+
+    .booking-status {
+      padding: 6px 11px;
+      border-radius: 20px;
+      background: #fff4d8;
+      color: #73510a;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .booking-status-confirmed {
+      background: #e7f7ec;
+      color: #216b38;
+    }
+
+    .booking-status-declined {
+      background: #fff0f0;
+      color: #9b2930;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    @media (max-width: 900px) {
+      .vehicle-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .catalogue-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .vehicle-detail {
+        grid-template-columns: 1fr;
+      }
+
+      .vehicle-detail-image {
+        height: 340px;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .page-main {
+        width: min(100% - 32px, 1100px);
+        padding: 32px 0 52px;
+      }
+
+      .page-nav {
+        gap: 14px;
+      }
+
+      .page-nav a,
+      .text-button {
+        font-size: 13px;
+      }
+
+      .vehicle-grid,
+      .catalogue-filters {
+        grid-template-columns: 1fr;
+      }
+
+      .vehicle-detail-image {
+        height: 250px;
+      }
+
+      .vehicle-detail-content {
+        padding: 20px;
+      }
+
+      .booking-card {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+      }
+    }

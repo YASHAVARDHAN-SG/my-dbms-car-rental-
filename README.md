@@ -21,30 +21,52 @@
 The `Jenkinsfile` checks out this repository on the Jenkins agent labeled
 `jenkins-slave-1`, starts a persistent SonarQube container, runs SonarQube
 analysis in a scanner container, archives a compressed source artifact, and
-deploys the PHP site in a Docker container. The website listens on container
+deploys the PHP site and MariaDB in Docker. The website listens on container
 port 80 and is published on host port 8080 by default; SonarQube is published
-on host port 9000 and stores its data in named Docker volumes. Both containers
-use Docker's `unless-stopped` restart policy. Website deployments reuse the
+on host port 9000 and stores its data in named Docker volumes. The database is
+available only on the private `car-rental-app` Docker network and persists in
+the `car-rental-db-data` volume. Both application containers use Docker's
+`unless-stopped` restart policy. Website deployments reuse the
 `car-rental-portal:latest` image tag instead of accumulating a new tagged image
 for each build. Before replacing images, the pipeline archives existing
 `car-rental-portal` image tags under `/home/ubuntu/docker_images/`, then removes
 the old tags after a successful deployment. A rollback image is retained while
 the new website is being health-checked.
 
-The `Dockerfile` packages the PHP site with Apache. Database provisioning and
-SQL initialization are intentionally not included in this pipeline. The
-homepage is a standalone landing page and does not require a database. Car
-listings, bookings, and other legacy application pages still require the
-database and shared includes, which are not currently present. Set the Jenkins
-`WEBSITE_PORT` parameter to
-an available host port (defaults to `8080`; use `80` only if it is free). Allow
-that port through the agent host's firewall/network rules. Visit
+#### Database setup and persistence
+
+Create two Jenkins **Secret text** credentials before deploying:
+
+- `car-rental-db-root-password`: a strong MariaDB root password.
+- `car-rental-db-password`: a strong password for the restricted application
+  account `car_rental_app`.
+
+Do not place these secrets in source control. On the first deployment with a
+new `car-rental-db-data` volume, the pipeline starts MariaDB 11.4 and imports
+`carrental.sql`, which creates the application tables and a small generic
+vehicle catalogue. It does not create a default administrator or demo account.
+The PHP application receives its database connection settings from container
+environment variables.
+
+MariaDB runs the initialization script only when its data directory is empty.
+For safety, the pipeline never deletes or resets the database volume. If a
+database container or volume already exists, verify that the Jenkins
+credentials match the existing database and back up and migrate its schema
+before deploying. The pipeline checks for the required tables and stops rather
+than overwriting an incompatible database. Changing a Jenkins password
+credential does not change the password inside an existing MariaDB instance;
+rotate that password in MariaDB and Jenkins together.
+
+The `Dockerfile` packages the PHP site with Apache and PDO MySQL support. Set
+the Jenkins `WEBSITE_PORT` parameter to an available host port (defaults to
+`8080`; use `80` only if it is free). Allow that port through the agent host's
+firewall/network rules. Visit
 `http://<jenkins-slave-1-host>:<WEBSITE_PORT>/` after a successful deployment.
 The pipeline briefly stops the current website container to free the port,
 then starts and health-checks the replacement. On a failed deployment it
-attempts to restore the prior container image and removes the failed new image.
-Archived images can be restored with
-`docker load --input /var/tmp/old_docker_images/<archive-name>.tar`.
+attempts to restore the prior website image while keeping the database volume
+intact. Archived images can be restored with
+`docker load --input /home/ubuntu/docker_images/<archive-name>.tar`.
 
 Configure the Jenkins job to use this repository's `Jenkinsfile` (for example,
 as a Pipeline-from-SCM or Multibranch Pipeline job). To start a build on each
@@ -56,11 +78,11 @@ GitHub push trigger; verify the webhook's recent deliveries in GitHub after
 configuration. The agent needs Docker CLI access to a running Docker daemon,
 and must be a Linux/Unix agent. The pipeline downloads these images on first
 use: `sonarqube:lts-community`, `sonarsource/sonar-scanner-cli:latest`,
-`curlimages/curl:8.12.1`, and `alpine:3.21`. The Alpine image packages the
-source artifact and removes stale workspace files at checkout, including files
-left by previous containers with different ownership. The scanner and packager
-run as the Jenkins agent's UID/GID so their workspace files remain removable
-by the agent on later builds.
+`curlimages/curl:8.12.1`, `alpine:3.21`, and `mariadb:11.4`. The Alpine image
+packages the source artifact and removes stale workspace files at checkout,
+including files left by previous containers with different ownership. The
+scanner and packager run as the Jenkins agent's UID/GID so their workspace
+files remain removable by the agent on later builds.
 
 ### Slack build notifications
 
@@ -119,7 +141,9 @@ sure that VM has sufficient memory allocated. An Elasticsearch exit code of
 available Docker host memory and OOM events if startup fails. The pipeline logs
 the container's OOM status and Docker host memory after a startup timeout.
 Analysis settings are in `sonar-project.properties`; the pipeline waits for
-the SonarQube quality gate.
+the SonarQube quality gate, and a failed gate prevents deployment. Configure
+coverage reporting and tests in SonarQube if the project's quality profile
+requires a new-code coverage threshold.
 The completed
 `dist/car-rental-portal-<build-number>.tar.gz` is archived as a Jenkins build
 artifact.
