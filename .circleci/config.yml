@@ -1,0 +1,27 @@
+version: 2.1
+
+jobs:
+  php-tests:
+    docker:
+      - image: cimg/php:8.2
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - composer-v1-{{ checksum "composer.json" }}-{{ arch }}
+            - composer-v1-
+      - run:
+          name: Install dependencies
+          command: composer install --no-interaction --prefer-dist
+      - save_cache:
+          key: composer-v1-{{ checksum "composer.json" }}-{{ arch }}
+          paths:
+            - vendor
+      - run:
+          name: Run PHPUnit tests
+          command: vendor/bin/phpunit --bootstrap tests/bootstrap.php --no-coverage tests/HelpersTest.php
+
+workflows:
+  php-tests:
+    jobs:
+      - php-tests
