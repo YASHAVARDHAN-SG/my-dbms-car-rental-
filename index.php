@@ -44,7 +44,7 @@
         </a>
       </div>
 
-      <a class="login-link" href="#availability">LOGIN / REGISTER</a>
+      <button class="login-link" type="button" data-open-dialog="account-dialog">LOGIN / REGISTER</button>
     </div>
   </header>
 
@@ -58,13 +58,19 @@
         <li><a href="mailto:info@gmail.com">CONTACT US</a></li>
       </ul>
 
-      <a class="account-link" href="#availability" aria-label="Account options">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm0 12.2a8.1 8.1 0 0 1-5.8-2.4c.3-1.9 4-2.9 5.8-2.9s5.5 1 5.8 2.9a8.1 8.1 0 0 1-5.8 2.4Z"/>
-        </svg>
-        <span aria-hidden="true">⌄</span>
-      </a>
-      <form class="search-form" action="#availability" role="search">
+      <div class="account-menu-wrap">
+        <button class="account-link" type="button" aria-label="Account options" aria-haspopup="true" aria-expanded="false" aria-controls="account-menu">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm0 12.2a8.1 8.1 0 0 1-5.8-2.4c.3-1.9 4-2.9 5.8-2.9s5.5 1 5.8 2.9a8.1 8.1 0 0 1-5.8 2.4Z"/>
+          </svg>
+          <span aria-hidden="true">⌄</span>
+        </button>
+        <div class="account-menu" id="account-menu" hidden>
+          <button type="button" data-open-dialog="account-dialog">Login / Register</button>
+          <a href="#availability">Browse listings</a>
+        </div>
+      </div>
+      <form class="search-form" id="car-search" role="search">
         <input type="search" name="q" placeholder="Search..." aria-label="Search cars">
         <button type="submit" aria-label="Search">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
@@ -84,22 +90,69 @@
         alt="A sports car on a scenic road"
         fetchpriority="high"
       >
-      <a class="settings-link" href="#availability" aria-label="View site options">
+      <button class="settings-link" type="button" data-open-dialog="settings-dialog" aria-label="View site options">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="m19.4 13 .1-1-.1-1 2-1.5-2-3.5-2.4 1a8 8 0 0 0-1.7-1L15 3h-6l-.3 3a8 8 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5-.1 1 .1 1-2 1.5 2 3.5 2.4-1a8 8 0 0 0 1.7 1L9 21h6l.3-3a8 8 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/>
         </svg>
-      </a>
+      </button>
     </section>
 
-    <section class="listing-section" id="availability">
+    <section class="listing-section">
       <div class="content-inner">
         <div class="section-heading" id="about">
           <h1>Find the Best <span>Car For You</span></h1>
           <p>Discover a car that fits your next journey. Vehicle listings and bookings will be available after database setup is complete.</p>
         </div>
-        <p class="coming-soon" id="faqs">Car listings are coming soon.</p>
+        <section class="availability-panel" id="availability" aria-labelledby="availability-title">
+          <h2 id="availability-title">Your next drive starts here</h2>
+          <p class="availability-copy">We’re preparing our vehicle catalogue. Search and booking will be available when the database is connected.</p>
+          <button class="primary-button" type="button" data-open-dialog="account-dialog">Get updates</button>
+          <p class="search-status" id="search-status" role="status" aria-live="polite"></p>
+        </section>
+        <section class="faq-section" id="faqs" aria-labelledby="faq-title">
+          <h2 id="faq-title">Frequently asked questions</h2>
+          <details>
+            <summary>When can I browse and book cars?</summary>
+            <p>Car listings and booking features will be enabled after the vehicle database is set up.</p>
+          </details>
+          <details>
+            <summary>How can I contact the team?</summary>
+            <p>Email <a href="mailto:info@gmail.com">info@gmail.com</a> or call <a href="tel:8974561236">8974561236</a>.</p>
+          </details>
+        </section>
       </div>
     </section>
   </main>
+
+  <dialog class="site-dialog" id="account-dialog" aria-labelledby="account-dialog-title">
+    <form method="dialog" class="dialog-close-form">
+      <button class="dialog-close" aria-label="Close dialog">×</button>
+    </form>
+    <p class="dialog-eyebrow">CAR RENTAL PORTAL</p>
+    <h2 id="account-dialog-title">Accounts are coming soon</h2>
+    <p>Login, registration, and booking are not available until database setup is complete. Contact us if you need help.</p>
+    <div class="dialog-actions">
+      <a class="primary-button" href="mailto:info@gmail.com">Email support</a>
+      <button class="secondary-button" type="button" data-close-dialog>Close</button>
+    </div>
+  </dialog>
+
+  <dialog class="site-dialog settings-dialog" id="settings-dialog" aria-labelledby="settings-dialog-title">
+    <form method="dialog" class="dialog-close-form">
+      <button class="dialog-close" aria-label="Close settings">×</button>
+    </form>
+    <p class="dialog-eyebrow">DISPLAY PREFERENCES</p>
+    <h2 id="settings-dialog-title">Make it comfortable</h2>
+    <p>Adjust the page contrast or text size for this visit.</p>
+    <label class="preference-toggle">
+      <input id="contrast-toggle" type="checkbox">
+      <span>High contrast</span>
+    </label>
+    <div class="dialog-actions preference-actions">
+      <button class="secondary-button" id="text-size-button" type="button">Increase text size</button>
+      <button class="secondary-button" id="reset-display-button" type="button">Reset</button>
+    </div>
+  </dialog>
+  <script src="assets/js/site.js" defer></script>
 </body>
 </html>

@@ -15,10 +15,15 @@
     body {
       min-width: 320px;
       margin: 0;
+      line-height: 1.6;
     }
 
     a {
       color: inherit;
+    }
+
+    button {
+      font: inherit;
     }
 
     .site-header {
@@ -112,13 +117,14 @@
 
     .login-link {
       padding: 10px 25px;
+      border: 0;
       border-radius: 3px;
       color: #fff;
       background: #ff293d;
       font-size: 13px;
       font-weight: 700;
-      text-decoration: none;
       white-space: nowrap;
+      cursor: pointer;
     }
 
     .login-link:hover,
@@ -173,6 +179,50 @@
       border-radius: 3px;
       color: #fff;
       text-decoration: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .account-menu-wrap {
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .account-menu {
+      position: absolute;
+      z-index: 3;
+      top: calc(100% + 10px);
+      right: 0;
+      width: 190px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 12px 30px rgb(0 0 0 / 18%);
+      color: #20242a;
+    }
+
+    .account-menu[hidden] {
+      display: none;
+    }
+
+    .account-menu a,
+    .account-menu button {
+      width: 100%;
+      display: block;
+      padding: 12px 15px;
+      border: 0;
+      color: inherit;
+      background: #fff;
+      font-size: 14px;
+      text-align: left;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .account-menu a:hover,
+    .account-menu button:hover {
+      background: #f4f5f7;
     }
 
     .search-form {
@@ -208,6 +258,11 @@
       color: #555;
       background: #fff;
       cursor: pointer;
+    }
+
+    .search-form:focus-within {
+      outline: 3px solid rgb(255 41 61 / 28%);
+      outline-offset: 2px;
     }
 
     .hero {
@@ -246,7 +301,13 @@
       border: 0;
       color: #fff;
       background: #f22f3d;
-      text-decoration: none;
+      cursor: pointer;
+      transition: width 160ms ease;
+    }
+
+    .settings-link:hover,
+    .settings-link:focus-visible {
+      width: 38px;
     }
 
     .listing-section {
@@ -278,15 +339,199 @@
       line-height: 1.7;
     }
 
-    .coming-soon {
-      width: fit-content;
-      margin: 28px auto 0;
-      padding: 11px 18px;
-      border: 1px solid #d4d4d4;
-      border-radius: 3px;
-      color: #555;
-      background: #f7f7f7;
+    .availability-panel {
+      max-width: 720px;
+      margin: 32px auto 0;
+      padding: 28px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 12px 35px rgb(30 42 55 / 6%);
+      text-align: center;
+    }
+
+    .availability-panel h2,
+    .faq-section h2 {
+      margin: 0 0 10px;
+      font-size: clamp(20px, 2.5vw, 26px);
+    }
+
+    .availability-copy {
+      max-width: 56ch;
+      margin: 0 auto 20px;
+      color: #636b74;
+    }
+
+    .primary-button,
+    .secondary-button {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border: 1px solid transparent;
+      border-radius: 5px;
       font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background-color 150ms ease, transform 150ms ease;
+    }
+
+    .primary-button {
+      color: #fff;
+      background: #ff293d;
+    }
+
+    .primary-button:hover,
+    .primary-button:focus-visible {
+      background: #db1e30;
+      transform: translateY(-1px);
+    }
+
+    .secondary-button {
+      border-color: #d8dde3;
+      color: #242a31;
+      background: #fff;
+    }
+
+    .secondary-button:hover,
+    .secondary-button:focus-visible {
+      background: #f1f3f5;
+    }
+
+    .search-status {
+      min-height: 1.6em;
+      margin: 12px 0 0;
+      color: #535d68;
+      font-size: 14px;
+    }
+
+    .faq-section {
+      max-width: 720px;
+      margin: 44px auto 0;
+    }
+
+    .faq-section h2 {
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .faq-section details {
+      margin: 10px 0;
+      padding: 15px 18px;
+      border: 1px solid #e1e4e8;
+      border-radius: 7px;
+      background: #fff;
+    }
+
+    .faq-section summary {
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .faq-section details p {
+      margin: 12px 0 0;
+      color: #5c6670;
+    }
+
+    .site-dialog {
+      width: min(92vw, 470px);
+      padding: 30px;
+      border: 0;
+      border-radius: 14px;
+      color: #20242a;
+      box-shadow: 0 24px 80px rgb(0 0 0 / 28%);
+    }
+
+    .site-dialog::backdrop {
+      background: rgb(13 20 28 / 62%);
+      backdrop-filter: blur(3px);
+    }
+
+    .site-dialog h2 {
+      margin: 0 36px 10px 0;
+      font-size: 25px;
+      line-height: 1.25;
+    }
+
+    .site-dialog p:not(.dialog-eyebrow) {
+      color: #5c6670;
+    }
+
+    .dialog-eyebrow {
+      margin: 0 0 8px;
+      color: #e3293b;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+    }
+
+    .dialog-close-form {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+    }
+
+    .dialog-close {
+      width: 36px;
+      height: 36px;
+      border: 0;
+      border-radius: 50%;
+      color: #4f5963;
+      background: #f0f2f4;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .dialog-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .preference-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 18px 0;
+      cursor: pointer;
+    }
+
+    .preference-toggle input {
+      width: 18px;
+      height: 18px;
+      accent-color: #e3293b;
+    }
+
+    .preference-actions .secondary-button {
+      flex: 1;
+    }
+
+    body.high-contrast {
+      color: #000;
+      background: #fff;
+    }
+
+    body.high-contrast .listing-section {
+      background: #fff;
+    }
+
+    body.high-contrast .availability-panel,
+    body.high-contrast .faq-section details {
+      border-color: #111;
+    }
+
+    body.large-text {
+      font-size: 18px;
+    }
+
+    body.large-text .nav-links a,
+    body.large-text .contact-copy strong,
+    body.large-text .contact-copy span {
+      font-size: 1em;
     }
 
     @media (max-width: 900px) {
@@ -394,6 +639,11 @@
         height: 38px;
       }
 
+      .account-menu {
+        left: 0;
+        right: auto;
+      }
+
       .search-form {
         width: calc(100% - 66px);
         height: 38px;
@@ -409,5 +659,13 @@
 
       .listing-section {
         padding-top: 34px;
+      }
+
+      .availability-panel {
+        padding: 22px 16px;
+      }
+
+      .site-dialog {
+        padding: 26px 22px;
       }
     }
