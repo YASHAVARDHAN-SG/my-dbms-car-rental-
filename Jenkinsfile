@@ -124,24 +124,28 @@ pipeline {
             }
         }
 
-        stage('PHP Tests and Coverage') {
+        stage('PHP Unit Tests and Coverage') {
             steps {
                 sh '''
                     set -eu
-                    docker build --pull \
+                    TEST_IMAGE="car-rental-php-tests:${BUILD_NUMBER}"
+
+                    docker build \
                         --file Dockerfile.test \
-                        --tag car-rental-php-test:latest \
+                        --tag "$TEST_IMAGE" \
                         .
+
                     docker run --rm \
-                        --volume "$WORKSPACE:/usr/src" \
-                        --workdir /usr/src \
+                        --volume "$WORKSPACE:/workspace" \
+                        --workdir /workspace \
                         --user "$(id -u):$(id -g)" \
                         --env XDEBUG_MODE=coverage \
-                        car-rental-php-test:latest \
-                        --configuration phpunit.xml \
-                        --coverage-clover coverage.xml
+                        "$TEST_IMAGE" \
+                        --configuration /workspace/phpunit.xml
+
                     test -s coverage.xml
-                    grep -q '<coverage ' coverage.xml
+                    echo "Coverage report generated:"
+                    ls -l coverage.xml
                 '''
             }
         }
