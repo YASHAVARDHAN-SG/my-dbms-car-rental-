@@ -20,13 +20,13 @@
 
 The starter pipeline is defined in [.circleci/config.yml](./.circleci/config.yml).
 This repository is one PHP 8.2 project. Composer installs the PHPUnit
-development dependency, and the pipeline runs the existing suite with
+development dependency, and the pipeline caches `vendor` using `composer.json`
+because the repository does not currently have a `composer.lock` file. It
+builds the application image with the repository `Dockerfile`, runs a homepage
+smoke test against that built image, and executes
 `vendor/bin/phpunit --bootstrap tests/bootstrap.php --no-coverage tests/HelpersTest.php`.
-It caches
-`vendor` using `composer.json` because the repository does not currently have a
-`composer.lock` file. There is no project build or lint script, so those steps
-are omitted. This initial workflow runs tests only; it does not deploy or need
-secrets.
+There is no project lint script, so linting is omitted. This starter workflow
+does not deploy or need secrets.
 
 Connect the GitHub repository to CircleCI and enable the project workflow to
 run on pushes. The `cimg/php:8.2` Docker image supplies PHP and Composer; no
